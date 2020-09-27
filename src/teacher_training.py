@@ -39,8 +39,6 @@ if __name__ == '__main__':
     resnet18 = models.resnet18(pretrained=True)
     resnet18 = nn.Sequential(*list(resnet18.children())[:-1])
     resnet18.to(device)
-    # resnet18.cuda()
-    # summary(resnet18, (3, PATCH_SIZE, PATCH_SIZE))
 
     # Teacher network
     teacher = AnomalyNet()
