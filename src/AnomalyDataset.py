@@ -10,11 +10,17 @@ from torch.utils.data.dataloader import DataLoader
 class AnomalyDataset(Dataset):
     '''Anomaly detection dataset'''
 
-    def __init__(self, csv_file, root_dir, transform=None):
+    def __init__(self, csv_file, root_dir, transform=None, **constraint):
         super(AnomalyDataset, self).__init__()
-        self.frame_list = pd.read_csv(csv_file)
         self.root_dir = root_dir
         self.transform = transform
+        self.frame_list = self._get_dataset(csv_file, constraint)
+    
+    def _get_dataset(self, csv_file, constraint):
+        '''Apply filter based on the contraint dict on the dataset'''
+        df = pd.read_csv(csv_file)
+        df = df.loc[(df[list(constraint)] == pd.Series(constraint)).all(axis=1)]
+        return df
     
     def __len__(self):
         return len(self.frame_list)
@@ -43,7 +49,9 @@ if __name__ == '__main__':
                                        transforms.Grayscale(num_output_channels=3),
                                        transforms.Resize((256, 256)),
                                        transforms.RandomCrop((256, 256)),
-                                       transforms.ToTensor()]))
+                                       transforms.ToTensor()]),
+                                    type='train',
+                                    label=0)
     
     dataloader = DataLoader(brain_dataset, batch_size=4, shuffle=True, num_workers=0)
     
@@ -53,7 +61,7 @@ if __name__ == '__main__':
         if i == 3:
             n = np.random.randint(0, len(batch['label']))
 
-            image = torch.squeeze(batch['image'][n, :, :, :])
+            image = torch.squeeze(batch['image'][n, :, :, :]).permute(1, 2, 0)
             label = batch['label'][n]
 
             plt.title(f"Sample #{n} - {'Tumor' if label else 'No Tumor'}")

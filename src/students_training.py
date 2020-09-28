@@ -6,69 +6,64 @@ import numpy as np
 from tqdm import tqdm
 from torchsummary import summary
 from AnomalyNet import AnomalyNet
+from ExtendedAnomalyNet import ExtendedAnomalyNet
 from AnomalyDataset import AnomalyDataset
 from torchvision import transforms, utils
 from torch.utils.data.dataloader import DataLoader
 
+pH = 65
+pW = 65
+imH = 256
+imW = 256
+sL1, sL2, sL3 = 2, 2, 2
 PATCH_SIZE = 65
 IMG_SIZE = 256
 EPOCHS = 1000
+N_STUDENTS = 3
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(f'Device used: {device}')
 
-def distillation_loss(output, target):
-    loss = torch.mean((output - target)**2)
-    return loss
-
-
-def compactness_loss(output):
-    _, n = output.size()
-    avg = torch.mean(output, axis=1)
-    std = torch.std(output, axis=1)
-    zt = output.T - avg
-    zt /= std
-    corr = torch.matmul(zt.T, zt) / (n - 1)
-    loss = torch.sum(torch.triu(corr, diagonal=1)**2)
-    return loss
-
 
 if __name__ == '__main__':
-
-    # Pretrained network for knowledge distillation
-    resnet18 = models.resnet18(pretrained=True)
-    resnet18 = nn.Sequential(*list(resnet18.children())[:-1])
-    resnet18.to(device)
-    # resnet18.cuda()
-    # summary(resnet18, (3, PATCH_SIZE, PATCH_SIZE))
-
+    
     # Teacher network
-    teacher = AnomalyNet()
-    teacher.to(device)
+    teacher_hat = AnomalyNet()
+    teacher = ExtendedAnomalyNet(base_net=teacher_hat, pH=pH, pW=pW, sL1=sL1, sL2=sL2, sL3=sL3, imH=imH, imW=imW)
 
-    # Loading saved model
-    model_name = '../model/teacher_net.pt'
-    try:
-        print(f'Loading model from {model_name}.')
-        teacher.load_state_dict(torch.load(model_name))
-    except FileNotFoundError as e:
-        print(e)
-        print('No model available.')
-        print('Initilialisation of a new model with random weights.')
+    # try load network in extended anomaly net just to see if it works
+    
+    # Students networks
+    students = [AnomalyNet() for i in range(N_STUDENTS)]
+
+    # Loading saved models
+    for i in range(N_STUDENTS):
+        model_name = f'../model/student_net_{i}.pt'
+        try:
+            print(f'Loading model from {model_name}.')
+            students[i].load_state_dict(torch.load(model_name))
+        except FileNotFoundError as e:
+            print(e)
+            print('No model available.')
+            print(f'Initilialisation of a new model with random weights for student {i}.')
 
     # Define optimizer
-    optimizer = optim.Adam(teacher.parameters(), lr=1e-4, weight_decay=1e-5)
+    optimizers = [optim.Adam(student.parameters(), lr=1e-4, weight_decay=1e-5) for student in students]
 
-    # Load training data
+    # Load anomaly-free training data
     brain_dataset = AnomalyDataset(csv_file='../data/brain/brain_tumor.csv',
                                    root_dir='../data/brain/img',
                                    transform=transforms.Compose([
                                        transforms.Grayscale(num_output_channels=3),
                                        transforms.Resize((IMG_SIZE, IMG_SIZE)),
-                                       transforms.RandomCrop((PATCH_SIZE, PATCH_SIZE)),
-                                       transforms.ToTensor()]))
+                                       transforms.ToTensor()]),
+                                    type='train',
+                                    label=0)
     dataloader = DataLoader(brain_dataset, batch_size=8, shuffle=True, num_workers=4)
 
+    # Preprocessing
+    # Apply extended teacher network on training data
+    
     # training
     min_running_loss = np.inf
     for epoch in range(EPOCHS):

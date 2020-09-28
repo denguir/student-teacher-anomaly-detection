@@ -52,7 +52,7 @@ if __name__ == '__main__':
     except FileNotFoundError as e:
         print(e)
         print('No model available.')
-        print('Initilialisation of a new model with random weights.')
+        print('Initilialisation of a new model with random weights for teacher.')
 
     # Define optimizer
     optimizer = optim.Adam(teacher.parameters(), lr=1e-4, weight_decay=1e-5)
@@ -64,7 +64,8 @@ if __name__ == '__main__':
                                        transforms.Grayscale(num_output_channels=3),
                                        transforms.Resize((IMG_SIZE, IMG_SIZE)),
                                        transforms.RandomCrop((PATCH_SIZE, PATCH_SIZE)),
-                                       transforms.ToTensor()]))
+                                       transforms.ToTensor()]),
+                                    type='train')
     dataloader = DataLoader(brain_dataset, batch_size=8, shuffle=True, num_workers=4)
 
     # training
