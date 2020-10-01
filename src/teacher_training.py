@@ -38,7 +38,7 @@ if __name__ == '__main__':
     # Pretrained network for knowledge distillation
     resnet18 = models.resnet18(pretrained=True)
     resnet18 = nn.Sequential(*list(resnet18.children())[:-1])
-    resnet18.to(device)
+    resnet18.eval().to(device)
 
     # Teacher network
     teacher = AnomalyNet()
@@ -79,7 +79,8 @@ if __name__ == '__main__':
 
             # forward pass
             inputs = batch['image'].to(device)
-            targets = torch.squeeze(resnet18(inputs))
+            with torch.no_grad:
+                targets = torch.squeeze(resnet18(inputs))
             outputs = torch.squeeze(teacher(inputs))
             loss = distillation_loss(outputs, targets) + compactness_loss(outputs)
 

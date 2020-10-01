@@ -10,7 +10,7 @@ class AnomalyNet(nn.Module):
     '''
     def __init__(self):
         super(AnomalyNet, self).__init__()
-        self.path_size = 65
+        self.patch_size = 65
         self.conv1 = nn.Conv2d(3, 128, 5, 1)
         self.conv2 = nn.Conv2d(128, 128, 5, 1)
         self.conv3 = nn.Conv2d(128, 256, 5, 1)
