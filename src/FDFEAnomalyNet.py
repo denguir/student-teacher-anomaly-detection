@@ -93,6 +93,7 @@ if __name__ == '__main__':
     base_net = AnomalyNet()
     base_net.cuda()
     base_net.eval()
+
     ## ExtendedAnomalyNet definitions & test run
     fdfe_net = FDFEAnomalyNet(base_net=base_net, pH=pH, pW=pW, sL1=sL1, sL2=sL2, sL3=sL3, imH=imH, imW=imW)
     fdfe_net.cuda()
@@ -101,15 +102,25 @@ if __name__ == '__main__':
     y1 = fdfe_net(testImage)
     print(y1.size())
 
-    patch = testImage[:, :, :65, :65]
-    print(f'patch center: (32, 32), path size: {patch.size()}')
+    # Select a random patch center for comparison
+    pad_top = np.ceil(pH / 2).astype(int)
+    pad_bottom = np.floor(pH / 2).astype(int)
+    pad_left = np.ceil(pW / 2).astype(int)
+    pad_right = np.floor(pW / 2).astype(int)
 
-    y2 = base_net(testImage[:, :, :65, :65])
+    cY = np.random.randint(pH - pad_top, imH - pad_bottom)
+    cX = np.random.randint(pW - pad_left, imW - pad_right)
+
+    # Compare FDFEAnomalyNet output vs AnomalyNet on selected patch
+    patch = testImage[:, :, cY-pad_bottom:cY+pad_top, cX-pad_right:cX+pad_left]
+    print(f'patch center: ({cY}, {cX}), patch size: {patch.size()}')
+
+    y2 = base_net(testImage[:, :, cY-pad_bottom:cY+pad_top, cX-pad_right:cX+pad_left])
     print(y2.size())
-    err =  torch.mean((y1[:, 32, 32, :] - y2)**2).item()
-    print(f'error on pixel (32, 32): {err}')
+    err =  torch.mean((y1[:, cY, cX, :] - y2)**2).item()
+    print(f'error on pixel ({cY}, {cX}): {err}')
 
-    mean_val_pixel_y1 = torch.mean((y1[:, 32, 32, :]**2)).item()
+    mean_val_pixel_y1 = torch.mean((y1[:, cY, cX, :]**2)).item()
     print(mean_val_pixel_y1)
 
     mean_val_pixel_y2 = torch.mean(y2**2).item()
@@ -118,6 +129,6 @@ if __name__ == '__main__':
     rel_err = 2 * err / (mean_val_pixel_y1 + mean_val_pixel_y2)
     print(f'Relative error: {rel_err}')
 
-    summary(fdfe_net, (3, 256, 256))
+    summary(fdfe_net, (3, imH, imW))
 
 

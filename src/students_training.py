@@ -20,9 +20,6 @@ sL1, sL2, sL3 = 2, 2, 2
 EPOCHS = 10
 N_STUDENTS = 3
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-print(f'Device used: {device}')
-
 
 def increment_mean_and_var(mu_N, var_N, N, batch):
     '''Increment value of mean and variance based on
@@ -39,21 +36,26 @@ def increment_mean_and_var(mu_N, var_N, N, batch):
 
 
 if __name__ == '__main__':
+
+    # Choosing device 
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    print(f'Device used: {device}')
     
     # Teacher network
     teacher_hat = AnomalyNet()
     teacher = FDFEAnomalyNet(base_net=teacher_hat, pH=pH, pW=pW, sL1=sL1, sL2=sL2, sL3=sL3, imH=imH, imW=imW)
     teacher.eval().to(device)
 
-    # try load network in extended anomaly net just to see if it works
+    # Load teacher model
     teacher.load_state_dict(torch.load('../model/teacher_net.pt'))
+
     # Students networks
     students_hat = [AnomalyNet() for i in range(N_STUDENTS)]
     students = [FDFEAnomalyNet(base_net=student, pH=pH, pW=pW, sL1=sL1, sL2=sL2, sL3=sL3, imH=imH, imW=imW)
                 for student in students_hat]
     students = [student.to(device) for student in students]
 
-    # Loading saved models
+    # Loading students models
     for i in range(N_STUDENTS):
         model_name = f'../model/student_net_{i}.pt'
         try:
@@ -91,6 +93,9 @@ if __name__ == '__main__':
             inputs = batch['image'].to(device)
             t_out = teacher(inputs)
             mu, var, N = increment_mean_and_var(mu, var, N, t_out)
+        print('Saving mean and variance of teacher net ...')
+        torch.save(mu, '../model/mu.pt')
+        torch.save(var, '../model/var.pt')
 
     # training
     dataloader = DataLoader(brain_dataset, batch_size=2, shuffle=True, num_workers=4)

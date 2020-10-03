@@ -14,8 +14,6 @@ PATCH_SIZE = 65
 IMG_SIZE = 256
 EPOCHS = 1000
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-print(f'Device used: {device}')
 
 def distillation_loss(output, target):
     loss = torch.mean((output - target)**2)
@@ -34,6 +32,10 @@ def compactness_loss(output):
 
 
 if __name__ == '__main__':
+
+    # Choosing device 
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    print(f'Device used: {device}')
 
     # Pretrained network for knowledge distillation
     resnet18 = models.resnet18(pretrained=True)
