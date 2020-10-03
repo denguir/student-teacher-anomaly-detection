@@ -10,13 +10,17 @@ from AnomalyDataset import AnomalyDataset
 from torchvision import transforms, utils
 from torch.utils.data.dataloader import DataLoader
 
-PATCH_SIZE = 65
-IMG_SIZE = 256
-EPOCHS = 1000
+pH = 65
+pW = 65
+imH = 256
+imW = 256
+EPOCHS = 1_000
+DATASET = 'brain'
 
 
 def distillation_loss(output, target):
-    loss = torch.mean((output - target)**2)
+    err = torch.norm(output - target, dim=1)**2
+    loss = torch.mean(err)
     return loss
 
 
@@ -47,7 +51,7 @@ if __name__ == '__main__':
     teacher.to(device)
 
     # Loading saved model
-    model_name = '../model/teacher_net.pt'
+    model_name = f'../model/teacher_net_{DATASET}.pt'
     try:
         print(f'Loading model from {model_name}.')
         teacher.load_state_dict(torch.load(model_name))
@@ -57,18 +61,18 @@ if __name__ == '__main__':
         print('Initilialisation of a new model with random weights for teacher.')
 
     # Define optimizer
-    optimizer = optim.Adam(teacher.parameters(), lr=1e-4, weight_decay=1e-5)
+    optimizer = optim.Adam(teacher.parameters(), lr=2e-4, weight_decay=1e-5)
 
     # Load training data
-    brain_dataset = AnomalyDataset(csv_file='../data/brain/brain_tumor.csv',
-                                   root_dir='../data/brain/img',
+    dataset = AnomalyDataset(csv_file=f'../data/{DATASET}/brain_tumor.csv',
+                                   root_dir=f'../data/{DATASET}/img',
                                    transform=transforms.Compose([
                                        transforms.Grayscale(num_output_channels=3),
-                                       transforms.Resize((IMG_SIZE, IMG_SIZE)),
-                                       transforms.RandomCrop((PATCH_SIZE, PATCH_SIZE)),
+                                       transforms.Resize((imH, imW)),
+                                       transforms.RandomCrop((pH, pW)),
                                        transforms.ToTensor()]),
                                     type='train')
-    dataloader = DataLoader(brain_dataset, batch_size=8, shuffle=True, num_workers=4)
+    dataloader = DataLoader(dataset, batch_size=64, shuffle=True, num_workers=4)
 
     # training
     min_running_loss = np.inf
@@ -81,7 +85,7 @@ if __name__ == '__main__':
 
             # forward pass
             inputs = batch['image'].to(device)
-            with torch.no_grad:
+            with torch.no_grad():
                 targets = torch.squeeze(resnet18(inputs))
             outputs = torch.squeeze(teacher(inputs))
             loss = distillation_loss(outputs, targets) + compactness_loss(outputs)
@@ -92,7 +96,7 @@ if __name__ == '__main__':
             running_loss += loss.item()
 
             # print stats
-            if i % 10 == 9:
+            if i % 3 == 2:
                 print(f"Epoch {epoch+1}, iter {i+1} \t loss: {running_loss}")
                 
                 if running_loss < min_running_loss:

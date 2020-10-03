@@ -22,12 +22,14 @@ sL1, sL2, sL3 = 2, 2, 2
 EPOCHS = 10
 N_STUDENTS = 3
 N_TEST = 5
+DATASET = 'brain'
 
 
 def get_error_map(students_pred, teacher_pred):
     mu_students = torch.mean(students_pred, 1)
     err = torch.norm(mu_students - teacher_pred, dim=3)**2
     return err
+
 
 def get_variance_map(students_pred):
     sse = torch.norm(students_pred, dim=4)**2
@@ -49,7 +51,7 @@ if __name__ == '__main__':
     teacher.eval().to(device)
 
     # Load teacher model
-    teacher.load_state_dict(torch.load('../model/teacher_net.pt'))
+    teacher.load_state_dict(torch.load(f'../model/teacher_net_{DATASET}.pt'))
 
     # Students networks
     students_hat = [AnomalyNet() for i in range(N_STUDENTS)]
@@ -64,8 +66,8 @@ if __name__ == '__main__':
         students[i].load_state_dict(torch.load(model_name))
 
     # Callibration on anomaly-free dataset
-    callibration_dataset = AnomalyDataset(csv_file='../data/brain/brain_tumor.csv',
-                                   root_dir='../data/brain/img',
+    callibration_dataset = AnomalyDataset(csv_file=f'../data/{DATASET}/brain_tumor.csv',
+                                   root_dir=f'../data/{DATASET}/img',
                                    transform=transforms.Compose([
                                        transforms.Grayscale(num_output_channels=3),
                                        transforms.Resize((imH, imW)),
@@ -96,8 +98,8 @@ if __name__ == '__main__':
 
 
     # Load testing data
-    brain_dataset = AnomalyDataset(csv_file='../data/brain/brain_tumor.csv',
-                                   root_dir='../data/brain/img',
+    brain_dataset = AnomalyDataset(csv_file=f'../data/{DATASET}/brain_tumor.csv',
+                                   root_dir=f'../data/{DATASET}/img',
                                    transform=transforms.Compose([
                                        transforms.Grayscale(num_output_channels=3),
                                        transforms.Resize((imH, imW)),
@@ -111,11 +113,13 @@ if __name__ == '__main__':
             batch = next(test_set)
             inputs = batch['image'].to(device)
             label = batch['label'].cpu()
+
             t_out = (teacher(inputs) - t_mu) / torch.sqrt(t_var)
             s_out = torch.stack([student(inputs) for student in students], dim=1)
+
             s_err = get_error_map(s_out, t_out)
             s_var = get_variance_map(s_out)
-            score_map = (s_err - mu_var) / torch.sqrt(var_err) + (var_err - mu_var) / torch.sqrt(var_var)
+            score_map = (s_err - mu_err) / torch.sqrt(var_err) + (s_var - mu_var) / torch.sqrt(var_var)
             
             img_in = torch.squeeze(inputs).permute(1, 2, 0).cpu()
             score_map = torch.squeeze(score_map).cpu()

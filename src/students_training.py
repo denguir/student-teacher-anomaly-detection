@@ -16,9 +16,10 @@ pH = 65
 pW = 65
 imH = 256
 imW = 256
-sL1, sL2, sL3 = 2, 2, 2
-EPOCHS = 10
+sL1, sL2, sL3 = 2, 2, 2 # stride of max pool layers in AnomalyNet
+EPOCHS = 100
 N_STUDENTS = 3
+DATASET = 'brain'
 
 
 def increment_mean_and_var(mu_N, var_N, N, batch):
@@ -35,6 +36,12 @@ def increment_mean_and_var(mu_N, var_N, N, batch):
     return mu_NB, var_NB, N + B
 
 
+def student_loss(output, target):
+    err = torch.norm(output - target, dim=3)**2
+    loss = torch.mean(err)
+    return loss
+
+
 if __name__ == '__main__':
 
     # Choosing device 
@@ -47,7 +54,7 @@ if __name__ == '__main__':
     teacher.eval().to(device)
 
     # Load teacher model
-    teacher.load_state_dict(torch.load('../model/teacher_net.pt'))
+    teacher.load_state_dict(torch.load(f'../model/teacher_net_{DATASET}.pt'))
 
     # Students networks
     students_hat = [AnomalyNet() for i in range(N_STUDENTS)]
@@ -57,7 +64,7 @@ if __name__ == '__main__':
 
     # Loading students models
     for i in range(N_STUDENTS):
-        model_name = f'../model/student_net_{i}.pt'
+        model_name = f'../model/student_net_{DATASET}_{i}.pt'
         try:
             print(f'Loading model from {model_name}.')
             students[i].load_state_dict(torch.load(model_name))
@@ -70,8 +77,8 @@ if __name__ == '__main__':
     optimizers = [optim.Adam(student.parameters(), lr=1e-4, weight_decay=1e-5) for student in students]
 
     # Load anomaly-free training data
-    brain_dataset = AnomalyDataset(csv_file='../data/brain/brain_tumor.csv',
-                                   root_dir='../data/brain/img',
+    dataset = AnomalyDataset(csv_file=f'../data/{DATASET}/brain_tumor.csv',
+                                   root_dir=f'../data/{DATASET}/img',
                                    transform=transforms.Compose([
                                        transforms.Grayscale(num_output_channels=3),
                                        transforms.Resize((imH, imW)),
@@ -80,12 +87,12 @@ if __name__ == '__main__':
                                     label=0)
     
 
-    # preprocessing
-    # apply teacher network on anomaly-free dataset
-    dataloader = DataLoader(brain_dataset, batch_size=2, shuffle=False, num_workers=4)
+    # Preprocessing
+    # Apply teacher network on anomaly-free dataset
+    dataloader = DataLoader(dataset, batch_size=1, shuffle=False, num_workers=4)
     print('Preprocessing of training dataset ...')
 
-    # compute incremental mean and var over traininig set
+    # Compute incremental mean and var over traininig set
     # because the whole training set takes too much memory space 
     with torch.no_grad():
         mu, var, N = 0, 0, 0
@@ -97,9 +104,8 @@ if __name__ == '__main__':
         torch.save(mu, '../model/mu.pt')
         torch.save(var, '../model/var.pt')
 
-    # training
-    dataloader = DataLoader(brain_dataset, batch_size=2, shuffle=True, num_workers=4)
-    criterion = nn.MSELoss(reduction='mean')
+    # Training
+    dataloader = DataLoader(dataset, batch_size=1, shuffle=True, num_workers=4)
 
     for j, student in enumerate(students):
         print(f'Training Student {j} on anomaly-free dataset ...')
@@ -117,7 +123,7 @@ if __name__ == '__main__':
                 with torch.no_grad():
                     targets = (teacher(inputs) - mu) / torch.sqrt(var)
                 outputs = student(inputs)
-                loss = criterion(targets, outputs)
+                loss = student_loss(targets, outputs)
 
                 # backward pass
                 loss.backward()
