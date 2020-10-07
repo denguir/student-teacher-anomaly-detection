@@ -17,9 +17,9 @@ pW = 65
 imH = 256
 imW = 256
 sL1, sL2, sL3 = 2, 2, 2 # stride of max pool layers in AnomalyNet
-EPOCHS = 100
+EPOCHS = 70
 N_STUDENTS = 3
-DATASET = 'brain'
+DATASET = 'carpet'
 
 
 def increment_mean_and_var(mu_N, var_N, N, batch):
@@ -54,7 +54,7 @@ if __name__ == '__main__':
     teacher.eval().to(device)
 
     # Load teacher model
-    teacher.load_state_dict(torch.load(f'../model/teacher_net_{DATASET}.pt'))
+    teacher.load_state_dict(torch.load(f'../model/{DATASET}/teacher_net.pt'))
 
     # Students networks
     students_hat = [AnomalyNet() for i in range(N_STUDENTS)]
@@ -64,7 +64,7 @@ if __name__ == '__main__':
 
     # Loading students models
     for i in range(N_STUDENTS):
-        model_name = f'../model/student_net_{DATASET}_{i}.pt'
+        model_name = f'../model/{DATASET}/student_net_{i}.pt'
         try:
             print(f'Loading model from {model_name}.')
             students[i].load_state_dict(torch.load(model_name))
@@ -77,12 +77,13 @@ if __name__ == '__main__':
     optimizers = [optim.Adam(student.parameters(), lr=1e-4, weight_decay=1e-5) for student in students]
 
     # Load anomaly-free training data
-    dataset = AnomalyDataset(csv_file=f'../data/{DATASET}/brain_tumor.csv',
+    dataset = AnomalyDataset(csv_file=f'../data/{DATASET}/{DATASET}.csv',
                                    root_dir=f'../data/{DATASET}/img',
                                    transform=transforms.Compose([
-                                       transforms.Grayscale(num_output_channels=3),
+                                       #transforms.Grayscale(num_output_channels=3),
                                        transforms.Resize((imH, imW)),
-                                       transforms.ToTensor()]),
+                                       transforms.ToTensor(),
+                                       transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]),
                                     type='train',
                                     label=0)
     
@@ -100,17 +101,17 @@ if __name__ == '__main__':
             inputs = batch['image'].to(device)
             t_out = teacher(inputs)
             mu, var, N = increment_mean_and_var(mu, var, N, t_out)
-        print('Saving mean and variance of teacher net ...')
-        torch.save(mu, '../model/mu.pt')
-        torch.save(var, '../model/var.pt')
+        # print('Saving mean and variance of teacher net ...')
+        # torch.save(mu, '../model/mu.pt')
+        # torch.save(var, '../model/var.pt')
 
     # Training
     dataloader = DataLoader(dataset, batch_size=1, shuffle=True, num_workers=4)
 
-    for j, student in enumerate(students):
+    for j, student in enumerate(students[1:], start=1):
         print(f'Training Student {j} on anomaly-free dataset ...')
         min_running_loss = np.inf
-        model_name = f'../model/student_net_{j}.pt'
+        model_name = f'../model/{DATASET}/student_net_{j}.pt'
         for epoch in range(EPOCHS):
             running_loss = 0.0
 

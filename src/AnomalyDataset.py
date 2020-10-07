@@ -7,6 +7,7 @@ from torchvision import transforms, utils
 from torch.utils.data.dataset import Dataset
 from torch.utils.data.dataloader import DataLoader
 
+
 class AnomalyDataset(Dataset):
     '''Anomaly detection dataset'''
 

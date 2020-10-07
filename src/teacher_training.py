@@ -15,7 +15,7 @@ pW = 65
 imH = 256
 imW = 256
 EPOCHS = 1_000
-DATASET = 'brain'
+DATASET = 'carpet'
 
 
 def distillation_loss(output, target):
@@ -51,7 +51,7 @@ if __name__ == '__main__':
     teacher.to(device)
 
     # Loading saved model
-    model_name = f'../model/teacher_net_{DATASET}.pt'
+    model_name = f'../model/{DATASET}/teacher_net.pt'
     try:
         print(f'Loading model from {model_name}.')
         teacher.load_state_dict(torch.load(model_name))
@@ -64,13 +64,14 @@ if __name__ == '__main__':
     optimizer = optim.Adam(teacher.parameters(), lr=2e-4, weight_decay=1e-5)
 
     # Load training data
-    dataset = AnomalyDataset(csv_file=f'../data/{DATASET}/brain_tumor.csv',
+    dataset = AnomalyDataset(csv_file=f'../data/{DATASET}/{DATASET}.csv',
                                    root_dir=f'../data/{DATASET}/img',
                                    transform=transforms.Compose([
-                                       transforms.Grayscale(num_output_channels=3),
+                                       #transforms.Grayscale(num_output_channels=3),
                                        transforms.Resize((imH, imW)),
                                        transforms.RandomCrop((pH, pW)),
-                                       transforms.ToTensor()]),
+                                       transforms.ToTensor(),
+                                       transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]),
                                     type='train')
     dataloader = DataLoader(dataset, batch_size=64, shuffle=True, num_workers=4)
 
@@ -95,17 +96,16 @@ if __name__ == '__main__':
             optimizer.step()
             running_loss += loss.item()
 
-            # print stats
-            if i % 3 == 2:
-                print(f"Epoch {epoch+1}, iter {i+1} \t loss: {running_loss}")
-                
-                if running_loss < min_running_loss:
-                    print(f"Loss decreased: {min_running_loss} -> {running_loss}.")
-                    print(f"Saving model to {model_name}.")
-                    torch.save(teacher.state_dict(), model_name)
+        # print stats
+        print(f"Epoch {epoch+1}, iter {i+1} \t loss: {running_loss}")
+            
+        if running_loss < min_running_loss:
+            print(f"Loss decreased: {min_running_loss} -> {running_loss}.")
+            print(f"Saving model to {model_name}.")
+            torch.save(teacher.state_dict(), model_name)
 
-                min_running_loss = min(min_running_loss, running_loss)
-                running_loss = 0.0
+        min_running_loss = min(min_running_loss, running_loss)
+        running_loss = 0.0
 
             
 

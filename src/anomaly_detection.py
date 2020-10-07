@@ -21,8 +21,8 @@ imW = 256
 sL1, sL2, sL3 = 2, 2, 2
 EPOCHS = 10
 N_STUDENTS = 3
-N_TEST = 5
-DATASET = 'brain'
+N_TEST = 10
+DATASET = 'carpet'
 
 
 def get_error_map(students_pred, teacher_pred):
@@ -51,7 +51,7 @@ if __name__ == '__main__':
     teacher.eval().to(device)
 
     # Load teacher model
-    teacher.load_state_dict(torch.load(f'../model/teacher_net_{DATASET}.pt'))
+    teacher.load_state_dict(torch.load(f'../model/{DATASET}/teacher_net.pt'))
 
     # Students networks
     students_hat = [AnomalyNet() for i in range(N_STUDENTS)]
@@ -61,17 +61,18 @@ if __name__ == '__main__':
 
     # Loading students models
     for i in range(N_STUDENTS):
-        model_name = f'../model/student_net_{i}.pt'
+        model_name = f'../model/{DATASET}/student_net_{i}.pt'
         print(f'Loading model from {model_name}.')
         students[i].load_state_dict(torch.load(model_name))
 
     # Callibration on anomaly-free dataset
-    callibration_dataset = AnomalyDataset(csv_file=f'../data/{DATASET}/brain_tumor.csv',
+    callibration_dataset = AnomalyDataset(csv_file=f'../data/{DATASET}/{DATASET}.csv',
                                    root_dir=f'../data/{DATASET}/img',
                                    transform=transforms.Compose([
-                                       transforms.Grayscale(num_output_channels=3),
+                                       #transforms.Grayscale(num_output_channels=3),
                                        transforms.Resize((imH, imW)),
-                                       transforms.ToTensor()]),
+                                       transforms.ToTensor(),
+                                       transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]),
                                     type='train',
                                     label=0)
 
@@ -98,21 +99,25 @@ if __name__ == '__main__':
 
 
     # Load testing data
-    brain_dataset = AnomalyDataset(csv_file=f'../data/{DATASET}/brain_tumor.csv',
+    dataset = AnomalyDataset(csv_file=f'../data/{DATASET}/{DATASET}.csv',
                                    root_dir=f'../data/{DATASET}/img',
                                    transform=transforms.Compose([
-                                       transforms.Grayscale(num_output_channels=3),
+                                       #transforms.Grayscale(num_output_channels=3),
                                        transforms.Resize((imH, imW)),
-                                       transforms.ToTensor()]),
+                                       transforms.ToTensor(),
+                                       transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]),
                                     type='test')
-    dataloader = DataLoader(brain_dataset, batch_size=1, shuffle=True, num_workers=4)
+    dataloader = DataLoader(dataset, batch_size=1, shuffle=True, num_workers=4)
     test_set = iter(dataloader)
+
+    unorm = transforms.Normalize((-1, -1, -1), (2, 2, 2)) # get back to original image
     # Build anomaly map
     with torch.no_grad():
         for i in range(N_TEST):
             batch = next(test_set)
             inputs = batch['image'].to(device)
             label = batch['label'].cpu()
+            anomaly = 'with' if label.item() == 1 else 'without'
 
             t_out = (teacher(inputs) - t_mu) / torch.sqrt(t_var)
             s_out = torch.stack([student(inputs) for student in students], dim=1)
@@ -121,16 +126,14 @@ if __name__ == '__main__':
             s_var = get_variance_map(s_out)
             score_map = (s_err - mu_err) / torch.sqrt(var_err) + (s_var - mu_var) / torch.sqrt(var_var)
             
-            img_in = torch.squeeze(inputs).permute(1, 2, 0).cpu()
+            img_in = unorm(torch.squeeze(inputs, 0)).permute(1, 2, 0).cpu()
             score_map = torch.squeeze(score_map).cpu()
 
             fig = plt.figure()
-            axes = fig.add_subplot(2, 1, 1)
+            axes = fig.add_subplot(1, 2, 1)
             axes.matshow(img_in, cmap='gray')
-            axes.set_title('Original image')
-
-            axes = fig.add_subplot(2, 1, 2)
+            axes.set_title(f'Original image - {anomaly} anomaly')
+            axes = fig.add_subplot(1, 2, 2)
             axes.matshow(score_map, cmap='viridis')
             axes.set_title('Anomaly map')
-
-            plt.show()
+            plt.show(block=True)

@@ -31,7 +31,8 @@ class AnomalyNet(nn.Module):
         x = self.max_pool(x)
         x = self.l_relu(self.conv4(x))
         x = self.l_relu(self.conv5(x))
-        x = self.l_relu(self.decode(torch.squeeze(x)))
+        x = x.view(-1, 128)
+        x = self.l_relu(self.decode(x))
         return x
 
 
