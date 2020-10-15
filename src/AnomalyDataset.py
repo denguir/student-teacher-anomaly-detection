@@ -43,18 +43,19 @@ class AnomalyDataset(Dataset):
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
-
-    brain_dataset = AnomalyDataset(csv_file='../data/brain/brain_tumor.csv',
-                                   root_dir='../data/brain/img',
+    
+    DATASET = 'carpet'
+    dataset = AnomalyDataset(csv_file=f'../data/{DATASET}/{DATASET}.csv',
+                                   root_dir=f'../data/{DATASET}/img',
                                    transform=transforms.Compose([
-                                       transforms.Grayscale(num_output_channels=3),
+                                       #transforms.Grayscale(num_output_channels=3),
                                        transforms.Resize((256, 256)),
                                        transforms.RandomCrop((256, 256)),
                                        transforms.ToTensor()]),
                                     type='train',
                                     label=0)
     
-    dataloader = DataLoader(brain_dataset, batch_size=4, shuffle=True, num_workers=0)
+    dataloader = DataLoader(dataset, batch_size=4, shuffle=True, num_workers=0)
     
     for i, batch in enumerate(dataloader):
         print(i, batch['image'].size(), batch['label'].size())

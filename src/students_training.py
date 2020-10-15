@@ -11,32 +11,20 @@ from ExtendedAnomalyNet import ExtendedAnomalyNet
 from AnomalyDataset import AnomalyDataset
 from torchvision import transforms, utils
 from torch.utils.data.dataloader import DataLoader
+from utils import increment_mean_and_var, load_model
 
 pH = 65
 pW = 65
 imH = 256
 imW = 256
 sL1, sL2, sL3 = 2, 2, 2 # stride of max pool layers in AnomalyNet
-EPOCHS = 70
+EPOCHS = 15
 N_STUDENTS = 3
-DATASET = 'carpet'
-
-
-def increment_mean_and_var(mu_N, var_N, N, batch):
-    '''Increment value of mean and variance based on
-       current mean, var and new batch
-    '''
-    B = batch.size()[0] # batch size
-    mu_B = torch.mean(batch, 0) # mean over batch
-    S_B = B * torch.var(batch, 0, unbiased=False) 
-    S_N = N * var_N
-    mu_NB = N/(N + B) * mu_N + B/(N + B) * mu_B
-    S_NB = S_N + S_B + B * mu_B**2 + N * mu_N**2 - (N + B) * mu_NB**2
-    var_NB = S_NB / (N+B)
-    return mu_NB, var_NB, N + B
+DATASET = 'brain'
 
 
 def student_loss(output, target):
+    # dim: (batch, h, w, vector)
     err = torch.norm(output - target, dim=3)**2
     loss = torch.mean(err)
     return loss
@@ -54,7 +42,7 @@ if __name__ == '__main__':
     teacher.eval().to(device)
 
     # Load teacher model
-    teacher.load_state_dict(torch.load(f'../model/{DATASET}/teacher_net.pt'))
+    load_model(teacher, f'../model/{DATASET}/teacher_net.pt')
 
     # Students networks
     students_hat = [AnomalyNet() for i in range(N_STUDENTS)]
@@ -65,25 +53,21 @@ if __name__ == '__main__':
     # Loading students models
     for i in range(N_STUDENTS):
         model_name = f'../model/{DATASET}/student_net_{i}.pt'
-        try:
-            print(f'Loading model from {model_name}.')
-            students[i].load_state_dict(torch.load(model_name))
-        except FileNotFoundError as e:
-            print(e)
-            print('No model available.')
-            print(f'Initilialisation of a new model with random weights for student {i}.')
+        load_model(students[i], model_name)
 
     # Define optimizer
     optimizers = [optim.Adam(student.parameters(), lr=1e-4, weight_decay=1e-5) for student in students]
 
     # Load anomaly-free training data
     dataset = AnomalyDataset(csv_file=f'../data/{DATASET}/{DATASET}.csv',
-                                   root_dir=f'../data/{DATASET}/img',
-                                   transform=transforms.Compose([
-                                       #transforms.Grayscale(num_output_channels=3),
-                                       transforms.Resize((imH, imW)),
-                                       transforms.ToTensor(),
-                                       transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]),
+                                    root_dir=f'../data/{DATASET}/img',
+                                    transform=transforms.Compose([
+                                        transforms.Grayscale(num_output_channels=3),
+                                        transforms.Resize((imH, imW)),
+                                        transforms.RandomHorizontalFlip(),
+                                        transforms.RandomVerticalFlip(),
+                                        transforms.ToTensor(),
+                                        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]),
                                     type='train',
                                     label=0)
     
@@ -105,10 +89,11 @@ if __name__ == '__main__':
         # torch.save(mu, '../model/mu.pt')
         # torch.save(var, '../model/var.pt')
 
+    
     # Training
     dataloader = DataLoader(dataset, batch_size=1, shuffle=True, num_workers=4)
 
-    for j, student in enumerate(students[1:], start=1):
+    for j, student in enumerate(students):
         print(f'Training Student {j} on anomaly-free dataset ...')
         min_running_loss = np.inf
         model_name = f'../model/{DATASET}/student_net_{j}.pt'

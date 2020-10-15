@@ -1,4 +1,4 @@
-# Source:
+# Source for FDFE:
 # https://github.com/erezposner/Fast_Dense_Feature_Extraction
 
 import torch

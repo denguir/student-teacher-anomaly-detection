@@ -6,16 +6,19 @@ import numpy as np
 from tqdm import tqdm
 from torchsummary import summary
 from AnomalyNet import AnomalyNet
+from AnomalyResnet18 import AnomalyResnet18
 from AnomalyDataset import AnomalyDataset
 from torchvision import transforms, utils
 from torch.utils.data.dataloader import DataLoader
+from utils import load_model
+
 
 pH = 65
 pW = 65
 imH = 256
 imW = 256
 EPOCHS = 1_000
-DATASET = 'carpet'
+DATASET = 'brain'
 
 
 def distillation_loss(output, target):
@@ -42,8 +45,11 @@ if __name__ == '__main__':
     print(f'Device used: {device}')
 
     # Pretrained network for knowledge distillation
-    resnet18 = models.resnet18(pretrained=True)
-    resnet18 = nn.Sequential(*list(resnet18.children())[:-1])
+    resnet18 = AnomalyResnet18()
+    resnet_model = f'../model/{DATASET}/resnet18.pt'
+    load_model(resnet18, resnet_model)
+
+    resnet18 = nn.Sequential(*list(resnet18.children())[:-2])
     resnet18.eval().to(device)
 
     # Teacher network
@@ -52,26 +58,23 @@ if __name__ == '__main__':
 
     # Loading saved model
     model_name = f'../model/{DATASET}/teacher_net.pt'
-    try:
-        print(f'Loading model from {model_name}.')
-        teacher.load_state_dict(torch.load(model_name))
-    except FileNotFoundError as e:
-        print(e)
-        print('No model available.')
-        print('Initilialisation of a new model with random weights for teacher.')
+    load_model(teacher, model_name)
 
     # Define optimizer
     optimizer = optim.Adam(teacher.parameters(), lr=2e-4, weight_decay=1e-5)
 
     # Load training data
     dataset = AnomalyDataset(csv_file=f'../data/{DATASET}/{DATASET}.csv',
-                                   root_dir=f'../data/{DATASET}/img',
-                                   transform=transforms.Compose([
-                                       #transforms.Grayscale(num_output_channels=3),
-                                       transforms.Resize((imH, imW)),
-                                       transforms.RandomCrop((pH, pW)),
-                                       transforms.ToTensor(),
-                                       transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]),
+                                    root_dir=f'../data/{DATASET}/img',
+                                    transform=transforms.Compose([
+                                        transforms.Grayscale(num_output_channels=3),
+                                        transforms.Resize((imH, imW)),
+                                        transforms.RandomCrop((pH, pW)),
+                                        transforms.RandomHorizontalFlip(),
+                                        transforms.RandomVerticalFlip(),
+                                        transforms.RandomRotation(180),
+                                        transforms.ToTensor(),
+                                        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]),
                                     type='train')
     dataloader = DataLoader(dataset, batch_size=64, shuffle=True, num_workers=4)
 
