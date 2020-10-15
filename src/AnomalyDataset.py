@@ -43,8 +43,9 @@ class AnomalyDataset(Dataset):
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
+    import sys 
     
-    DATASET = 'carpet'
+    DATASET = sys.argv[1]
     dataset = AnomalyDataset(csv_file=f'../data/{DATASET}/{DATASET}.csv',
                                    root_dir=f'../data/{DATASET}/img',
                                    transform=transforms.Compose([
@@ -55,7 +56,7 @@ if __name__ == '__main__':
                                     type='train',
                                     label=0)
     
-    dataloader = DataLoader(dataset, batch_size=4, shuffle=True, num_workers=0)
+    dataloader = DataLoader(dataset, batch_size=4, shuffle=True, num_workers=4)
     
     for i, batch in enumerate(dataloader):
         print(i, batch['image'].size(), batch['label'].size())

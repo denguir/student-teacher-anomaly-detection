@@ -29,8 +29,9 @@ class AnomalyResnet18(nn.Module):
 
 
 if __name__ == '__main__':
+    import sys
 
-    DATASET = 'carpet'
+    DATASET = sys.argv[1]
 
     resnet18 = AnomalyResnet18()
     resnet_model = f'../model/{DATASET}/resnet18.pt'

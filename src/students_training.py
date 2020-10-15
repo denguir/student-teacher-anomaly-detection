@@ -3,6 +3,7 @@ import torchvision.models as models
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
+import sys
 from tqdm import tqdm
 from torchsummary import summary
 from AnomalyNet import AnomalyNet
@@ -20,7 +21,7 @@ imW = 256
 sL1, sL2, sL3 = 2, 2, 2 # stride of max pool layers in AnomalyNet
 EPOCHS = 15
 N_STUDENTS = 3
-DATASET = 'brain'
+DATASET = sys.argv[1]
 
 
 def student_loss(output, target):
@@ -62,7 +63,7 @@ if __name__ == '__main__':
     dataset = AnomalyDataset(csv_file=f'../data/{DATASET}/{DATASET}.csv',
                                     root_dir=f'../data/{DATASET}/img',
                                     transform=transforms.Compose([
-                                        transforms.Grayscale(num_output_channels=3),
+                                        #transforms.Grayscale(num_output_channels=3),
                                         transforms.Resize((imH, imW)),
                                         transforms.RandomHorizontalFlip(),
                                         transforms.RandomVerticalFlip(),

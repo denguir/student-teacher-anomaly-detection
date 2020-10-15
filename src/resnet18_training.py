@@ -3,6 +3,7 @@ import torchvision.models as models
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
+import sys
 from tqdm import tqdm
 from torchsummary import summary
 from AnomalyResnet18 import AnomalyResnet18
@@ -14,7 +15,7 @@ from utils import load_model
 imH = 256
 imW = 256
 EPOCHS = 100
-DATASET = 'brain'
+DATASET = sys.argv[1]
 
 
 if __name__ == '__main__':
@@ -39,7 +40,7 @@ if __name__ == '__main__':
     dataset = AnomalyDataset(csv_file=f'../data/{DATASET}/{DATASET}.csv',
                                     root_dir=f'../data/{DATASET}/img',
                                     transform=transforms.Compose([
-                                        transforms.Grayscale(num_output_channels=3),
+                                        #transforms.Grayscale(num_output_channels=3),
                                         transforms.Resize((imH, imW)),
                                         transforms.RandomHorizontalFlip(),
                                         transforms.RandomVerticalFlip(),

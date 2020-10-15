@@ -3,6 +3,7 @@ import torchvision.models as models
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
+import sys
 from tqdm import tqdm
 from torchsummary import summary
 from AnomalyNet import AnomalyNet
@@ -18,7 +19,7 @@ pW = 65
 imH = 256
 imW = 256
 EPOCHS = 1_000
-DATASET = 'brain'
+DATASET = sys.argv[1]
 
 
 def distillation_loss(output, target):
@@ -67,7 +68,7 @@ if __name__ == '__main__':
     dataset = AnomalyDataset(csv_file=f'../data/{DATASET}/{DATASET}.csv',
                                     root_dir=f'../data/{DATASET}/img',
                                     transform=transforms.Compose([
-                                        transforms.Grayscale(num_output_channels=3),
+                                        #transforms.Grayscale(num_output_channels=3),
                                         transforms.Resize((imH, imW)),
                                         transforms.RandomCrop((pH, pW)),
                                         transforms.RandomHorizontalFlip(),

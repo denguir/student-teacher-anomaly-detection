@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 
 def load_model(model, model_path):
     model_name = model_path.split('/')[-1]

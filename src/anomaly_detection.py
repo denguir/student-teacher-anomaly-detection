@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
 import numpy as np
+import sys
 from tqdm import tqdm
 from torchsummary import summary
 from AnomalyNet import AnomalyNet
@@ -14,6 +15,7 @@ from torchvision import transforms, utils
 from torch.utils.data.dataloader import DataLoader
 from utils import increment_mean_and_var, load_model, mc_dropout
 
+
 pH = 65
 pW = 65
 imH = 256
@@ -22,7 +24,7 @@ sL1, sL2, sL3 = 2, 2, 2
 EPOCHS = 10
 N_STUDENTS = 3
 N_TEST = 30
-DATASET = 'brain'
+DATASET = sys.argv[1]
 
 
 def get_error_map(students_pred, teacher_pred):
@@ -77,7 +79,7 @@ if __name__ == '__main__':
     callibration_dataset = AnomalyDataset(csv_file=f'../data/{DATASET}/{DATASET}.csv',
                                     root_dir=f'../data/{DATASET}/img',
                                     transform=transforms.Compose([
-                                        transforms.Grayscale(num_output_channels=3),
+                                        #transforms.Grayscale(num_output_channels=3),
                                         transforms.Resize((imH, imW)),
                                         transforms.ToTensor(),
                                         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]),
@@ -115,7 +117,7 @@ if __name__ == '__main__':
     dataset = AnomalyDataset(csv_file=f'../data/{DATASET}/{DATASET}.csv',
                                     root_dir=f'../data/{DATASET}/img',
                                     transform=transforms.Compose([
-                                        transforms.Grayscale(num_output_channels=3),
+                                        #transforms.Grayscale(num_output_channels=3),
                                         transforms.Resize((imH, imW)),
                                         transforms.ToTensor(),
                                         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]),
