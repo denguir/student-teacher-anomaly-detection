@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
 import numpy as np
+import cv2
 import sys
 from tqdm import tqdm
 from einops import rearrange, reduce
@@ -149,18 +150,24 @@ if __name__ == '__main__':
             score_map = rearrange(score_map, 'b h w -> h (b w)').cpu()
 
             # display results
-            plt.figure(figsize=(13, 3))
+            # plt.figure(figsize=(13, 3))
 
-            plt.subplot(1, 2, 1)
-            plt.imshow(img_in)
-            plt.title(f'Original image - {anomaly} anomaly')
+            # plt.subplot(1, 2, 1)
+            # plt.imshow(img_in)
+            # plt.title(f'Original image - {anomaly} anomaly')
 
-            plt.subplot(1, 2, 2)
-            plt.imshow(score_map, cmap='jet')
-            plt.colorbar(extend='both')
-            plt.title('Anomaly map')
+            # plt.subplot(1, 2, 2)
+            # plt.imshow(score_map, cmap='jet')
+            # plt.colorbar(extend='both')
+            # plt.title('Anomaly map')
 
-            max_score = (max_err - mu_err) / torch.sqrt(var_err) + (max_var - mu_var) / torch.sqrt(var_var)
-            plt.clim(0, max_score.item())
+            # max_score = (max_err - mu_err) / torch.sqrt(var_err) + (max_var - mu_var) / torch.sqrt(var_var)
+            # plt.clim(0, max_score.item())
 
-            plt.show(block=True)
+            # plt.show(block=True)
+
+            gray_img = cv2.cvtColor(img_in, cv2.COLOR_BGR2GRAY)
+            heatmap_img = cv2.applyColorMap(score_map, cv2.COLORMAP_JET)
+            fin = cv2.addWeighted(heatmap_img, 0.7, img, 0.3, 0)
+
+            cv2.imshow(fin)
