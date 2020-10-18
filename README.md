@@ -46,13 +46,13 @@ python3 anomaly_detection.py carpet
 And more results are available under **/result** folder
 
 ## Expected folder structure
-├── data  
+├── data   
 │   ├── carpet  
 │   └── hazelnut  
 ├── docs  
 │   ├── 9245_FastCNNFeature_BMVC.pdf  
-|   ├── anomaly_detection_summary.pdf  
-│   └── anomaly_detection.pdf  
+│   ├── anomaly_detection.pdf  
+│   └── anomaly_detection_summary.pdf  
 ├── model  
 │   ├── brain  
 │   ├── carpet  
@@ -75,11 +75,11 @@ And more results are available under **/result** folder
     ├── ExtendedAnomalyNet.py  
     ├── FDFEAnomalyNet.py  
     ├── FDFE.py  
-    ├── __pycache__  
     ├── resnet18_training.py  
     ├── students_training.py  
     ├── teacher_training.py  
     └── utils.py  
+
 
 ## References
 
