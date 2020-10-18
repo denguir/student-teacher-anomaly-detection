@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import sys
+from einops import reduce, rearrange
 from tqdm import tqdm
 from torchsummary import summary
 from AnomalyNet import AnomalyNet
@@ -23,12 +24,14 @@ DATASET = sys.argv[1]
 
 
 def distillation_loss(output, target):
+    # dim: (batch, vector)
     err = torch.norm(output - target, dim=1)**2
     loss = torch.mean(err)
     return loss
 
 
 def compactness_loss(output):
+    # dim: (batch, vector)
     _, n = output.size()
     avg = torch.mean(output, axis=1)
     std = torch.std(output, axis=1)
@@ -91,8 +94,9 @@ if __name__ == '__main__':
             # forward pass
             inputs = batch['image'].to(device)
             with torch.no_grad():
-                targets = torch.squeeze(resnet18(inputs))
-            outputs = torch.squeeze(teacher(inputs))
+                targets = rearrange(resnet18(inputs), 'b vec h w -> b (vec h w)') # h=w=1
+                #targets = torch.squeeze(resnet18(inputs))
+            outputs = teacher(inputs)
             loss = distillation_loss(outputs, targets) + compactness_loss(outputs)
 
             # backward pass

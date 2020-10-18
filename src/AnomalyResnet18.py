@@ -37,7 +37,8 @@ if __name__ == '__main__':
     resnet_model = f'../model/{DATASET}/resnet18.pt'
     load_model(resnet18, resnet_model)
 
-    print(list(resnet18.children())[:-2])
     resnet18 = nn.Sequential(*list(resnet18.children())[:-2])
+    resnet18.cuda()
+    summary(resnet18, (3, 65, 65))
 
 

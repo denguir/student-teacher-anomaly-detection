@@ -5,6 +5,7 @@ import torch.optim as optim
 import numpy as np
 import sys
 from tqdm import tqdm
+from einops import reduce
 from torchsummary import summary
 from AnomalyNet import AnomalyNet
 from FDFEAnomalyNet import FDFEAnomalyNet
@@ -26,7 +27,7 @@ DATASET = sys.argv[1]
 
 def student_loss(output, target):
     # dim: (batch, h, w, vector)
-    err = torch.norm(output - target, dim=3)**2
+    err = reduce((output - target)**2, 'b h w vec -> b h w', 'sum')
     loss = torch.mean(err)
     return loss
 
@@ -81,14 +82,14 @@ if __name__ == '__main__':
     # Compute incremental mean and var over traininig set
     # because the whole training set takes too much memory space 
     with torch.no_grad():
-        mu, var, N = 0, 0, 0
+        t_mu, t_var, N = 0, 0, 0
         for i, batch in tqdm(enumerate(dataloader)):
             inputs = batch['image'].to(device)
             t_out = teacher(inputs)
-            mu, var, N = increment_mean_and_var(mu, var, N, t_out)
+            t_mu, t_var, N = increment_mean_and_var(t_mu, t_var, N, t_out)
         # print('Saving mean and variance of teacher net ...')
-        # torch.save(mu, '../model/mu.pt')
-        # torch.save(var, '../model/var.pt')
+        # torch.save(t_mu, '../model/t_mu.pt')
+        # torch.save(t_var, '../model/t_var.pt')
 
     
     # Training
@@ -108,7 +109,7 @@ if __name__ == '__main__':
                 # forward pass
                 inputs = batch['image'].to(device)
                 with torch.no_grad():
-                    targets = (teacher(inputs) - mu) / torch.sqrt(var)
+                    targets = (teacher(inputs) - t_mu) / torch.sqrt(t_var)
                 outputs = student(inputs)
                 loss = student_loss(targets, outputs)
 

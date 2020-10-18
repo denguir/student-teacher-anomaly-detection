@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import torch
 from PIL import Image
+from einops import rearrange
 from torchvision import transforms, utils
 from torch.utils.data.dataset import Dataset
 from torch.utils.data.dataloader import DataLoader
@@ -64,10 +65,10 @@ if __name__ == '__main__':
         if i == 3:
             n = np.random.randint(0, len(batch['label']))
 
-            image = torch.squeeze(batch['image'][n, :, :, :]).permute(1, 2, 0)
+            image = rearrange(batch['image'][n, :, :, :], 'c h w -> h w c')
             label = batch['label'][n]
 
-            plt.title(f"Sample #{n} - {'Tumor' if label else 'No Tumor'}")
+            plt.title(f"Sample #{n} - {'Anomalous' if label else 'Normal'}")
             plt.imshow(image)
             plt.show()
             break

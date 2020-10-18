@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import sys
 from tqdm import tqdm
+from einops import rearrange, reduce
 from torchsummary import summary
 from AnomalyNet import AnomalyNet
 from FDFEAnomalyNet import FDFEAnomalyNet
@@ -30,17 +31,17 @@ DATASET = sys.argv[1]
 def get_error_map(students_pred, teacher_pred):
     # student: (batch, student_id, h, w, vector)
     # teacher: (batch, h, w, vector)
-    mu_students = torch.mean(students_pred, 1)
-    err = torch.norm(mu_students - teacher_pred, dim=3)**2
+    mu_students = reduce(students_pred, 'b id h w vec -> b h w vec', 'mean')
+    err = reduce((mu_students - teacher_pred)**2, 'b h w vec -> b h w', 'sum')
     return err
 
 
 def get_variance_map(students_pred):
     # student: (batch, student_id, h, w, vector)
-    sse = torch.norm(students_pred, dim=4)**2
-    msse = torch.mean(sse, 1)
-    mu_students = torch.mean(students_pred, 1)
-    var = msse - torch.norm(mu_students, dim=3)**2
+    sse = reduce(students_pred**2, 'b id h w vec -> b id h w', 'sum')
+    msse = reduce(sse, 'b id h w -> b h w', 'mean')
+    mu_students = reduce(students_pred, 'b id h w vec -> b h w vec', 'mean')
+    var = msse - reduce(mu_students**2, 'b h w vec -> b h w', 'sum')
     return var
 
 
@@ -142,8 +143,10 @@ if __name__ == '__main__':
             s_var = get_variance_map(s_out)
             score_map = (s_err - mu_err) / torch.sqrt(var_err) + (s_var - mu_var) / torch.sqrt(var_var)
 
-            img_in = unorm(torch.squeeze(inputs, 0)).permute(1, 2, 0).cpu()
-            score_map = torch.squeeze(score_map).cpu()
+            img_in = unorm(rearrange(inputs, 'b c h w -> c h (b w)').cpu())
+            img_in = rearrange(img_in, 'c h w -> h w c')
+
+            score_map = rearrange(score_map, 'b h w -> h (b w)').cpu()
 
             # display results
             plt.figure(figsize=(13, 3))
@@ -158,6 +161,6 @@ if __name__ == '__main__':
             plt.title('Anomaly map')
 
             max_score = (max_err - mu_err) / torch.sqrt(var_err) + (max_var - mu_var) / torch.sqrt(var_var)
-            #plt.clim(0, max_score.item())
+            plt.clim(0, max_score.item())
 
             plt.show(block=True)
