@@ -53,8 +53,7 @@ And more results are available under **/result** folder
 │   ├── 9245_FastCNNFeature_BMVC.pdf  
 │   ├── anomaly_detection.pdf  
 │   └── anomaly_detection_summary.pdf  
-├── model  
-│   ├── brain  
+├── model   
 │   ├── carpet  
 │   └── hazelnut  
 ├── mvtec_dataset.py  
