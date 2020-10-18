@@ -40,8 +40,10 @@ python3 anomaly_detection.py carpet
 ```
 
 ## Results
-More results are available under /result folder
 ![alt text](https://github.com/denguir/student-teacher-anomaly-detection/blob/master/results/anomaly_carpet_res1.png)
+![alt text](https://github.com/denguir/student-teacher-anomaly-detection/blob/master/results/anomaly_carpet_res2.png)
+
+And more results are available under **/result** folder
 
 ## Expected folder structure
 ├── data  
