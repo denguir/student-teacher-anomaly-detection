@@ -33,7 +33,7 @@ cd src
 python3 students_training.py carpet
 ```
 
-* Run anomaly_detection.py to obtain an anomaly map for each image of the test set
+* Run anomaly_detection.py to obtain an anomaly map for each image of the test set. An anomaly map is computed using the variance of Students predictions and the error between Students predictions and Teacher.
 ```
 cd src
 python3 anomaly_detection.py carpet
@@ -41,43 +41,43 @@ python3 anomaly_detection.py carpet
 
 ## Results
 More results are available under /result folder
-![alt text](https://github.com/[username]/[reponame]/blob/[branch]/image.jpg?raw=true)
+![alt text](https://github.com/denguir/student-teacher-anomaly-detection/blob/master/results/anomaly_carpet_res1.png)
 
 ## Expected folder structure
-├── data
-│   ├── carpet
-│   └── hazelnut
-├── docs
-│   ├── 9245_FastCNNFeature_BMVC.pdf
-|   ├── anomaly_detection_summary.pdf
-│   └── anomaly_detection.pdf
-├── model
-│   ├── brain
-│   ├── carpet
-│   └── hazelnut
-├── mvtec_dataset.py
-├── mvtec_dataset.sh
-├── README.md
-├── results
-│   ├── anomaly_carpet_res1.png
-│   ├── anomaly_carpet_res2.png
-│   ├── anomaly_carpet_res3.png
-│   ├── anomaly_carpet_res4.png
-│   ├── anomaly_hazelnul_res2.png
-│   └── anomaly_hazelnut_res1.png
-└── src
-    ├── AnomalyDataset.py
-    ├── anomaly_detection.py
-    ├── AnomalyNet.py
-    ├── AnomalyResnet18.py
-    ├── ExtendedAnomalyNet.py
-    ├── FDFEAnomalyNet.py
-    ├── FDFE.py
-    ├── __pycache__
-    ├── resnet18_training.py
-    ├── students_training.py
-    ├── teacher_training.py
-    └── utils.py
+├── data  
+│   ├── carpet  
+│   └── hazelnut  
+├── docs  
+│   ├── 9245_FastCNNFeature_BMVC.pdf  
+|   ├── anomaly_detection_summary.pdf  
+│   └── anomaly_detection.pdf  
+├── model  
+│   ├── brain  
+│   ├── carpet  
+│   └── hazelnut  
+├── mvtec_dataset.py  
+├── mvtec_dataset.sh  
+├── README.md  
+├── results  
+│   ├── anomaly_carpet_res1.png  
+│   ├── anomaly_carpet_res2.png  
+│   ├── anomaly_carpet_res3.png  
+│   ├── anomaly_carpet_res4.png  
+│   ├── anomaly_hazelnul_res2.png  
+│   └── anomaly_hazelnut_res1.png  
+└── src  
+    ├── AnomalyDataset.py  
+    ├── anomaly_detection.py  
+    ├── AnomalyNet.py  
+    ├── AnomalyResnet18.py  
+    ├── ExtendedAnomalyNet.py  
+    ├── FDFEAnomalyNet.py  
+    ├── FDFE.py  
+    ├── __pycache__  
+    ├── resnet18_training.py  
+    ├── students_training.py  
+    ├── teacher_training.py  
+    └── utils.py  
 
 ## References
 
