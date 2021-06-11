@@ -47,7 +47,7 @@ done
 
 echo "Moved train images into $img_dir"
 
-python3 dataset.py "$dataset"
+python3 mvtec_dataset.py "$dataset"
 echo "CSV file built"
 
 if [[ -d "$model_dir" ]]
