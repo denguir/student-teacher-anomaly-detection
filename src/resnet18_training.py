@@ -5,23 +5,36 @@ import torch.optim as optim
 import numpy as np
 import sys
 from tqdm import tqdm
-from torchsummary import summary
+from argparse import ArgumentParser
 from AnomalyResnet18 import AnomalyResnet18
 from AnomalyDataset import AnomalyDataset
-from torchvision import transforms, utils
+from torchvision import transforms
 from torch.utils.data.dataloader import DataLoader
 from utils import load_model
 
-imH = 256
-imW = 256
-EPOCHS = 100
-DATASET = sys.argv[1]
+
+def parse_arguments():
+    parser = ArgumentParser()
+
+    # program arguments
+    parser.add_argument('--dataset', type=str, default='carpet', help="Dataset to train on (in data folder)")
+    parser.add_argument('--image_size', type=int, default=256)
+
+    # trainer arguments
+    parser.add_argument('--max_epochs', type=int, default=100)
+    parser.add_argument('--gpus', type=int, default=(1 if torch.cuda.is_available() else 0))
+    parser.add_argument('--batch_size', type=int, default=64)
+    parser.add_argument('--num_workers', type=int, default=4)
+    parser.add_argument('--learning_rate', type=float, default=1e-3)
+    parser.add_argument('--momentum', type=float, default=0.9)
+
+    args = parser.parse_args()
+    return args
 
 
-if __name__ == '__main__':
-
+def train(args):
     # Choosing device 
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:0" if args.gpus else "cpu")
     print(f'Device used: {device}')
 
     # Resnet pretrained network for knowledge distillation
@@ -29,30 +42,34 @@ if __name__ == '__main__':
     resnet18.to(device)
 
     # Loading saved model
-    model_name = f'../model/{DATASET}/resnet18.pt'
+    model_name = f'../model/{args.dataset}/resnet18.pt'
     load_model(resnet18, model_name)
 
     # Define optimizer and loss function
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.SGD(resnet18.parameters(), lr=0.001, momentum=0.9)
+    optimizer = optim.SGD(resnet18.parameters(), 
+                          lr=args.learning_rate, 
+                          momentum=args.momentum)
 
     # Load training data
-    dataset = AnomalyDataset(csv_file=f'../data/{DATASET}/{DATASET}.csv',
-                                    root_dir=f'../data/{DATASET}/img',
+    dataset = AnomalyDataset(csv_file=f'../data/{args.dataset}/{args.dataset}.csv',
+                                    root_dir=f'../data/{args.dataset}/img',
                                     transform=transforms.Compose([
-                                        #transforms.Grayscale(num_output_channels=3),
-                                        transforms.Resize((imH, imW)),
+                                        transforms.Resize((args.image_size, args.image_size)),
                                         transforms.RandomHorizontalFlip(),
                                         transforms.RandomVerticalFlip(),
                                         transforms.RandomRotation(180),
                                         transforms.ToTensor(),
                                         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]),
                                     type='train')
-    dataloader = DataLoader(dataset, batch_size=64, shuffle=True, num_workers=4)
+    dataloader = DataLoader(dataset, 
+                            batch_size=args.batch_size, 
+                            shuffle=True, 
+                            num_workers=args.num_workers)
 
     # training
     min_running_loss = np.inf
-    for epoch in range(EPOCHS):
+    for epoch in range(args.max_epochs):
         running_loss = 0.0
         running_corrects = 0
         max_running_corrects = 0
@@ -81,15 +98,16 @@ if __name__ == '__main__':
         # print stats
         print(f"Epoch {epoch+1}, iter {i+1} \t loss: {running_loss}")
         accuracy = running_corrects.double() / max_running_corrects
-        if running_loss < min_running_loss:
+        if running_loss < min_running_loss and epoch > 0:
+            torch.save(resnet18.state_dict(), model_name)
             print(f"Loss decreased: {min_running_loss} -> {running_loss}.")
             print(f"Accuracy: {accuracy}")
-            print(f"Saving model to {model_name}.")
-            torch.save(resnet18.state_dict(), model_name)
+            print(f"Model saved to {model_name}.")
 
         min_running_loss = min(min_running_loss, running_loss)
         running_loss = 0.0
 
             
-
-
+if __name__ == '__main__':
+    args = parse_arguments()
+    train(args)

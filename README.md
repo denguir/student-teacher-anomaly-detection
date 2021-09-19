@@ -20,19 +20,19 @@ python3 resnet18_training.py carpet
 * Run teacher_training.py to distil the knowledge of resnet18 on a smaller neural network. This will speed up the processing of images. This neural network, called the Teacher, outputs a 512-dimensional description vector for each patch of size **65x65** of the image
 ```
 cd src
-python3 teacher_training.py carpet
+python3 teacher_training.py --dataset carpet --patch_size 33 
 ```
 
 * Run students_training.py to train a set of M=3 students against the teacher network. The training of the students is done on an anomaly-free dataset. We expect them to generalize poorly in images containing anomalies
 ```
 cd src
-python3 students_training.py carpet
+python students_training.py --dataset carpet --patch_size 33 --n_students 3
 ```
 
 * Run anomaly_detection.py to obtain an anomaly map for each image of the test set. An anomaly map is computed using the variance of Students predictions and the error between Students predictions and Teacher.
 ```
 cd src
-python3 anomaly_detection.py carpet
+python anomaly_detection.py --dataset carpet --patch_size 33
 ```
 
 ## Results
