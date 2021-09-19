@@ -115,7 +115,7 @@ if __name__ == '__main__':
                 if i % 10 == 9:
                     print(f"Epoch {epoch+1}, iter {i+1} \t loss: {running_loss}")
                     
-                    if running_loss < min_running_loss:
+                    if running_loss < min_running_loss and epoch > 0:
                         print(f"Loss decreased: {min_running_loss} -> {running_loss}.")
                         print(f"Saving model to {model_name}.")
                         torch.save(student.state_dict(), model_name)
