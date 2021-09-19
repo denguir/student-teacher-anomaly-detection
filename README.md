@@ -14,10 +14,14 @@ with Discriminative Latent Embeddings](https://arxiv.org/pdf/1911.02357v2.pdf).
 * (Optional) Run resnet18_training.py script to train resnet18 further on your dataset
 ```
 cd src
-python3 resnet18_training.py carpet
+python3 resnet18_training.py --dataset carpet
 ```
 
-* Run teacher_training.py to distil the knowledge of resnet18 on a smaller neural network. This will speed up the processing of images. This neural network, called the Teacher, outputs a 512-dimensional description vector for each patch of size **65x65** of the image
+* Run teacher_training.py to distil the knowledge of resnet18 on a smaller neural network. This will speed up the processing of images. This neural network, called the Teacher, outputs a 512-dimensional description vector for each patch of size <patch_size> of the image.
+The supported patch_size values are:
+    * size = 17, effective if we are looking for small size anomalies
+    * size = 33, effective if we are looking for medium size anomalies
+    * size = 65, effective if we are looking for big size anomalies
 ```
 cd src
 python3 teacher_training.py --dataset carpet --patch_size 33 
@@ -42,39 +46,27 @@ python anomaly_detection.py --dataset carpet --patch_size 33
 And more results are available under **/result** folder
 
 ## Expected folder structure
-├── data   
+├── data  
 │   ├── carpet  
 │   └── hazelnut  
 ├── docs  
-│   ├── 9245_FastCNNFeature_BMVC.pdf  
-│   ├── anomaly_detection.pdf  
-│   └── anomaly_detection_summary.pdf  
-├── model   
+├── model  
 │   ├── carpet  
 │   └── hazelnut  
 ├── mvtec_dataset.py  
 ├── mvtec_dataset.sh  
 ├── README.md  
 ├── results  
-│   ├── anomaly_carpet_res1.png  
-│   ├── anomaly_carpet_res2.png  
-│   ├── anomaly_carpet_res3.png  
-│   ├── anomaly_carpet_res4.png  
-│   ├── anomaly_hazelnul_res2.png  
-│   └── anomaly_hazelnut_res1.png  
 └── src  
     ├── AnomalyDataset.py  
     ├── anomaly_detection.py  
     ├── AnomalyNet.py  
     ├── AnomalyResnet18.py  
-    ├── ExtendedAnomalyNet.py  
-    ├── FDFEAnomalyNet.py  
     ├── FDFE.py  
     ├── resnet18_training.py  
     ├── students_training.py  
     ├── teacher_training.py  
     └── utils.py  
-
 
 ## References
 
