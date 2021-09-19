@@ -6,11 +6,10 @@ import numpy as np
 import sys
 from einops import reduce, rearrange
 from tqdm import tqdm
-from torchsummary import summary
 from AnomalyNet import AnomalyNet
 from AnomalyResnet18 import AnomalyResnet18
 from AnomalyDataset import AnomalyDataset
-from torchvision import transforms, utils
+from torchvision import transforms
 from torch.utils.data.dataloader import DataLoader
 from utils import load_model
 
@@ -57,7 +56,7 @@ if __name__ == '__main__':
     resnet18.eval().to(device)
 
     # Teacher network
-    teacher = AnomalyNet()
+    teacher = AnomalyNet.create((pH, pW))
     teacher.to(device)
 
     # Loading saved model

@@ -6,12 +6,9 @@ import numpy as np
 import sys
 from tqdm import tqdm
 from einops import reduce
-from torchsummary import summary
 from AnomalyNet import AnomalyNet
-from FDFEAnomalyNet import FDFEAnomalyNet
-from ExtendedAnomalyNet import ExtendedAnomalyNet
 from AnomalyDataset import AnomalyDataset
-from torchvision import transforms, utils
+from torchvision import transforms
 from torch.utils.data.dataloader import DataLoader
 from utils import increment_mean_and_var, load_model
 
@@ -19,7 +16,6 @@ pH = 65
 pW = 65
 imH = 256
 imW = 256
-sL1, sL2, sL3 = 2, 2, 2 # stride of max pool layers in AnomalyNet
 EPOCHS = 15
 N_STUDENTS = 3
 DATASET = sys.argv[1]
@@ -39,17 +35,14 @@ if __name__ == '__main__':
     print(f'Device used: {device}')
     
     # Teacher network
-    teacher_hat = AnomalyNet()
-    teacher = FDFEAnomalyNet(base_net=teacher_hat, pH=pH, pW=pW, sL1=sL1, sL2=sL2, sL3=sL3, imH=imH, imW=imW)
+    teacher = AnomalyNet.create((pH, pW))
     teacher.eval().to(device)
 
     # Load teacher model
     load_model(teacher, f'../model/{DATASET}/teacher_net.pt')
 
     # Students networks
-    students_hat = [AnomalyNet() for i in range(N_STUDENTS)]
-    students = [FDFEAnomalyNet(base_net=student, pH=pH, pW=pW, sL1=sL1, sL2=sL2, sL3=sL3, imH=imH, imW=imW)
-                for student in students_hat]
+    students = [AnomalyNet.create((pH, pW)) for _ in range(N_STUDENTS)]
     students = [student.to(device) for student in students]
 
     # Loading students models
@@ -85,7 +78,7 @@ if __name__ == '__main__':
         t_mu, t_var, N = 0, 0, 0
         for i, batch in tqdm(enumerate(dataloader)):
             inputs = batch['image'].to(device)
-            t_out = teacher(inputs)
+            t_out = teacher.fdfe(inputs)
             t_mu, t_var, N = increment_mean_and_var(t_mu, t_var, N, t_out)
         # print('Saving mean and variance of teacher net ...')
         # torch.save(t_mu, '../model/t_mu.pt')
@@ -109,8 +102,8 @@ if __name__ == '__main__':
                 # forward pass
                 inputs = batch['image'].to(device)
                 with torch.no_grad():
-                    targets = (teacher(inputs) - t_mu) / torch.sqrt(t_var)
-                outputs = student(inputs)
+                    targets = (teacher.fdfe(inputs) - t_mu) / torch.sqrt(t_var)
+                outputs = student.fdfe(inputs)
                 loss = student_loss(targets, outputs)
 
                 # backward pass
