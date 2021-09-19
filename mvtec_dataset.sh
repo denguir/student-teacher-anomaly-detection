@@ -74,6 +74,7 @@ function build_csv {
 
 
 function process_dataset {
+	log "Processing MVTec dataset...\\n"
 	TEST_DIR="test"
 	TRAIN_DIR="train"
 	GT_DIR="ground_truth"
@@ -85,6 +86,7 @@ function process_dataset {
 		move_images $CAT $GT_DIR $GT_DIR
 		build_csv $CAT
 	done
+	log "Done!\\n"
 }
 
 prepare_dir

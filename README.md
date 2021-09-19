@@ -4,16 +4,12 @@ with Discriminative Latent Embeddings](https://arxiv.org/pdf/1911.02357v2.pdf).
 
 ## How to use
 
-* Download a dataset from [MVTec website](https://www.mvtec.com/company/research/datasets/mvtec-ad/) and extract it under the **/data** folder. Let us download the **carpet** dataset for the example. You might need to run
+* Run the mvtec_dataset.sh script to download and prepare the [MVTec dataset](https://www.mvtec.com/company/research/datasets/mvtec-ad/) in the correct format. This requires about 5GB of disk space.
 ```
-chmod -R u+rw data
-```
-
-* Run the mvtec_dataset.sh script to prepare the dataset in the correct format. 
-```
-./mvtec_dataset.sh carpet
+./mvtec_dataset.sh
 ```
 
+* The __data__ folder should be available now. Each subfolder in __data__ has the name of a category. Let us build a model for the category __carpet__ as an example.
 
 * (Optional) Run resnet18_training.py script to train resnet18 further on your dataset
 ```
