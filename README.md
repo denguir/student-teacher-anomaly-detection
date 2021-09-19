@@ -45,29 +45,6 @@ python anomaly_detection.py --dataset carpet --patch_size 33
 
 And more results are available under **/result** folder
 
-## Expected folder structure
-├── data  
-│   ├── carpet  
-│   └── hazelnut  
-├── docs  
-├── model  
-│   ├── carpet  
-│   └── hazelnut  
-├── mvtec_dataset.py  
-├── mvtec_dataset.sh  
-├── README.md  
-├── results  
-└── src  
-    ├── AnomalyDataset.py  
-    ├── anomaly_detection.py  
-    ├── AnomalyNet.py  
-    ├── AnomalyResnet18.py  
-    ├── FDFE.py  
-    ├── resnet18_training.py  
-    ├── students_training.py  
-    ├── teacher_training.py  
-    └── utils.py  
-
 ## References
 
 ### Original paper
