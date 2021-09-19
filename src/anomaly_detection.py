@@ -1,28 +1,32 @@
 import torch
-import torchvision.models as models
-import torch.nn as nn
-import torch.optim as optim
 import matplotlib.pyplot as plt
-import numpy as np
-import sys
 from tqdm import tqdm
+from argparse import ArgumentParser
 from einops import rearrange, reduce
 from AnomalyNet import AnomalyNet
 from AnomalyDataset import AnomalyDataset
 from torchvision import transforms
 from torch.utils.data.dataloader import DataLoader
-from utils import increment_mean_and_var, load_model, mc_dropout
+from utils import increment_mean_and_var, load_model
 
 
-pH = 65
-pW = 65
-imH = 256
-imW = 256
-sL1, sL2, sL3 = 2, 2, 2
-EPOCHS = 10
-N_STUDENTS = 3
-N_TEST = 30
-DATASET = sys.argv[1]
+def parse_arguments():
+    parser = ArgumentParser()
+
+    # program arguments
+    parser.add_argument('--dataset', type=str, default='carpet', help="Dataset to infer on (in data folder)")
+    parser.add_argument('--test_size', type=int, default=30, help="Number of images to visualize")
+    parser.add_argument('--n_students', type=int, default=3, help="Number of students network to use")
+    parser.add_argument('--patch_size', type=int, default=65, choices=[17, 33, 65])
+    parser.add_argument('--image_size', type=int, default=256)
+
+    # trainer arguments
+    parser.add_argument('--gpus', type=int, default=(1 if torch.cuda.is_available() else 0))
+    parser.add_argument('--batch_size', type=int, default=1)
+    parser.add_argument('--num_workers', type=int, default=4)
+
+    args = parser.parse_args()
+    return args
 
 
 def get_error_map(students_pred, teacher_pred):
@@ -42,45 +46,42 @@ def get_variance_map(students_pred):
     return var
 
 
-def predict_student(students, inputs, n=2):
-    s_out = torch.stack([student(inputs) for i in range(n) for student in students], dim=1)
-    return s_out
-
-
-if __name__ == '__main__':
-    
+def detect_anomaly(args):
     # Choosing device 
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:0" if args.gpus else "cpu")
     print(f'Device used: {device}')
 
     # Teacher network
-    teacher = AnomalyNet.create((pH, pW))
+    teacher = AnomalyNet.create((args.patch_size, args.patch_size))
     teacher.eval().to(device)
 
     # Load teacher model
-    load_model(teacher, f'../model/{DATASET}/teacher_net.pt')
+    load_model(teacher, f'../model/{args.dataset}/teacher_{args.patch_size}_net.pt')
 
     # Students networks
-    students = [AnomalyNet.create((pH, pW)) for _ in range(N_STUDENTS)]
+    students = [AnomalyNet.create((args.patch_size, args.patch_size)) for _ in range(args.n_students)]
     students = [student.eval().to(device) for student in students]
 
     # Loading students models
-    for i in range(N_STUDENTS):
-        model_name = f'../model/{DATASET}/student_net_{i}.pt'
+    for i in range(args.n_students):
+        model_name = f'../model/{args.dataset}/student_{args.patch_size}_net_{i}.pt'
         load_model(students[i], model_name)
 
     # Callibration on anomaly-free dataset
-    callibration_dataset = AnomalyDataset(csv_file=f'../data/{DATASET}/{DATASET}.csv',
-                                    root_dir=f'../data/{DATASET}/img',
+    callibration_dataset = AnomalyDataset(csv_file=f'../data/{args.dataset}/{args.dataset}.csv',
+                                    root_dir=f'../data/{args.dataset}/img',
                                     transform=transforms.Compose([
-                                        #transforms.Grayscale(num_output_channels=3),
-                                        transforms.Resize((imH, imW)),
+                                        transforms.Resize((args.image_size, args.image_size)),
                                         transforms.ToTensor(),
                                         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]),
                                     type='train',
                                     label=0)
 
-    dataloader = DataLoader(callibration_dataset, batch_size=1, shuffle=False, num_workers=4)
+    dataloader = DataLoader(callibration_dataset, 
+                            batch_size=args.batch_size, 
+                            shuffle=False, 
+                            num_workers=args.num_workers)
+
     with torch.no_grad():
         print('Callibrating teacher on Student dataset.')
         t_mu, t_var, t_N = 0, 0, 0
@@ -93,11 +94,13 @@ if __name__ == '__main__':
         max_err, max_var = 0, 0
         mu_err, var_err, N_err = 0, 0, 0
         mu_var, var_var, N_var = 0, 0, 0
+
         for i, batch in tqdm(enumerate(dataloader)):
             inputs = batch['image'].to(device)
+
             t_out = (teacher.fdfe(inputs) - t_mu) / torch.sqrt(t_var)
             s_out = torch.stack([student.fdfe(inputs) for student in students], dim=1)
-            # s_out = predict_student(students, inputs) # MC dropout
+
             s_err = get_error_map(s_out, t_out)
             s_var = get_variance_map(s_out)
             mu_err, var_err, N_err = increment_mean_and_var(mu_err, var_err, N_err, s_err)
@@ -108,21 +111,24 @@ if __name__ == '__main__':
 
 
     # Load testing data
-    dataset = AnomalyDataset(csv_file=f'../data/{DATASET}/{DATASET}.csv',
-                                    root_dir=f'../data/{DATASET}/img',
+    dataset = AnomalyDataset(csv_file=f'../data/{args.dataset}/{args.dataset}.csv',
+                                    root_dir=f'../data/{args.dataset}/img',
                                     transform=transforms.Compose([
-                                        #transforms.Grayscale(num_output_channels=3),
-                                        transforms.Resize((imH, imW)),
+                                        transforms.Resize((args.image_size, args.image_size)),
                                         transforms.ToTensor(),
                                         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]),
                                     type='test')
-    dataloader = DataLoader(dataset, batch_size=1, shuffle=True, num_workers=4)
-    test_set = iter(dataloader)
+    dataloader = DataLoader(dataset, 
+                            batch_size=args.batch_size, 
+                            shuffle=True, 
+                            num_workers=args.num_workers)
 
-    unorm = transforms.Normalize((-1, -1, -1), (2, 2, 2)) # get back to original image
+
     # Build anomaly map
+    test_set = iter(dataloader)
+    unorm = transforms.Normalize((-1, -1, -1), (2, 2, 2)) # get back to original image
     with torch.no_grad():
-        for i in range(N_TEST):
+        for i in range(args.test_size):
             batch = next(test_set)
             inputs = batch['image'].to(device)
             label = batch['label'].cpu()
@@ -130,7 +136,6 @@ if __name__ == '__main__':
 
             t_out = (teacher.fdfe(inputs) - t_mu) / torch.sqrt(t_var)
             s_out = torch.stack([student.fdfe(inputs) for student in students], dim=1)
-            # s_out = predict_student(students, inputs) # MC dropout
 
             s_err = get_error_map(s_out, t_out)
             s_var = get_variance_map(s_out)
@@ -159,3 +164,8 @@ if __name__ == '__main__':
             plt.clim(0, max_score.item())
 
             plt.show(block=True)
+
+
+if __name__ == '__main__':
+    args = parse_arguments()
+    detect_anomaly(args)
