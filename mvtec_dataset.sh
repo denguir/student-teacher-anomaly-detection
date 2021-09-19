@@ -1,58 +1,93 @@
 #!/bin/bash
 
-# HOW TO USE:
-# download a MVTec dataset from here:
-# https://www.mvtec.com/company/research/datasets/mvtec-ad/
-# and unzip under the data folder
-# and run this script
+DATA_URL="ftp://guest:GU.205dldo@ftp.softronics.ch/mvtec_anomaly_detection/mvtec_anomaly_detection.tar.xz"
+DATA_DIR="data"
+MODEL_DIR="model"
 
-dataset="$1"
-img_dir="data/$dataset/img"
-test_dir="data/$dataset/test"
-train_dir="data/$dataset/train"
-model_dir="model/$dataset"
+CATEGORIES=(bottle
+			cable
+			capsule
+			carpet
+			grid
+			hazelnut
+			leather
+			metal_nut
+			pill
+			screw
+			tile
+			toothbrush
+			transistor
+			wood
+			zipper
+			)
 
-if [[ -d "$img_dir" ]]
-then 
-	echo "$img_dir already exists"
-else
-    mkdir "$img_dir"
-fi
 
-for fo in $test_dir/*
-do
- 	for fi in $fo/*
- 	do	
- 		folder=$(echo $fi | cut -d'/' -f 1,2,3,4)
- 		filename=$(echo $fi | cut -d'/' -f 3,4,5)
- 		filename=$(echo $filename | tr '/' '_')
- 		new_file=$img_dir/$filename
- 		cp "$fi" "$new_file"
- 	done
-done
+function log {
+    local PURPLE='\033[0;35m'
+    local NOCOLOR='\033[m'
+    local BOLD='\033[1m'
+    local NOBOLD='\033[0m'
+    echo -e -n "${PURPLE}${BOLD}$1${NOBOLD}${NOCOLOR}"
+}
 
-echo "Moved test images into $img_dir"
+function prepare_dir {
+	mkdir -p $DATA_DIR
+	mkdir -p $MODEL_DIR
+}
 
-for fo in $train_dir/*
-do
- 	for fi in $fo/*
- 	do	
- 		folder=$(echo $fi | cut -d'/' -f 1,2,3,4)
- 		filename=$(echo $fi | cut -d'/' -f 3,4,5)
- 		filename=$(echo $filename | tr '/' '_')
- 		new_file=$img_dir/$filename
- 		cp "$fi" "$new_file"
- 	done
-done
+function download_dataset {
+	log "Downloading MVTec dataset...\\n"
+	wget -nc $DATA_URL -P $DATA_DIR
+	log "Done!\\n"
+}
 
-echo "Moved train images into $img_dir"
+function extract_dataset {
+	log "Extracting MVTec dataset...\\n"
+	tar -xf "$DATA_DIR/mvtec_anomaly_detection.tar.xz" -C $DATA_DIR
+	rm -rf "$DATA_DIR/mvtec_anomaly_detection.tar.xz"
+	chmod -R u+rw $DATA_DIR
+	log "Done!\\n"
+}
 
-python3 mvtec_dataset.py "$dataset"
-echo "CSV file built"
+function move_images {
+	DATASET="$1"
+	SRC_DIR="$DATA_DIR/$DATASET/$2"
+	TGT_DIR="$DATA_DIR/$DATASET/$3"
+	mkdir -p $TGT_DIR
+	for fo in $SRC_DIR/*
+	do
+		for fi in $fo/*
+		do	
+			folder=$(echo $fi | cut -d'/' -f 1,2,3,4)
+			filename=$(echo $fi | cut -d'/' -f 3,4,5)
+			filename=$(echo $filename | tr '/' '_')
+			dest_file=$TGT_DIR/$filename
+			mv $fi $dest_file
+		done
+	done
+}
 
-if [[ -d "$model_dir" ]]
-then 
-	echo "$model_dir already exists"
-else
-    mkdir "$model_dir"
-fi
+function build_csv {
+	DATASET="$1"
+	python3 mvtec_dataset.py $DATASET
+}
+
+
+function process_dataset {
+	TEST_DIR="test"
+	TRAIN_DIR="train"
+	GT_DIR="ground_truth"
+	IMG_DIR="img"
+	for CAT in "${CATEGORIES[@]}"
+	do 
+		move_images $CAT $TEST_DIR $IMG_DIR
+		move_images $CAT $TRAIN_DIR $IMG_DIR
+		move_images $CAT $GT_DIR $GT_DIR
+		build_csv $CAT
+	done
+}
+
+prepare_dir
+download_dataset
+extract_dataset
+process_dataset
