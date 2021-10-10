@@ -68,16 +68,15 @@ def train(args):
                             weight_decay=args.weight_decay) for student in students]
 
     # Load anomaly-free training data
-    dataset = AnomalyDataset(csv_file=f'../data/{args.dataset}/{args.dataset}.csv',
-                                    root_dir=f'../data/{args.dataset}/img',
-                                    transform=transforms.Compose([
-                                        transforms.Resize((args.image_size, args.image_size)),
-                                        transforms.RandomHorizontalFlip(),
-                                        transforms.RandomVerticalFlip(),
-                                        transforms.ToTensor(),
-                                        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]),
-                                    type='train',
-                                    label=0)
+    dataset = AnomalyDataset(root_dir=f'../data/{args.dataset}',
+                             transform=transforms.Compose([
+                                transforms.Resize((args.image_size, args.image_size)),
+                                transforms.RandomHorizontalFlip(),
+                                transforms.RandomVerticalFlip(),
+                                transforms.ToTensor(),
+                                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]),
+                             type='train',
+                             label=0)
     
 
     # Preprocessing

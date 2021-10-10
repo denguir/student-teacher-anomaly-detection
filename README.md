@@ -36,7 +36,7 @@ python students_training.py --dataset carpet --patch_size 33 --n_students 3
 * Run anomaly_detection.py to obtain an anomaly map for each image of the test set. An anomaly map is computed using the variance of Students predictions and the error between Students predictions and Teacher.
 ```
 cd src
-python anomaly_detection.py --dataset carpet --patch_size 33
+python anomaly_detection.py --dataset carpet --patch_size 33 --n_students 3
 ```
 
 ## Results

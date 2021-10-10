@@ -68,14 +68,13 @@ def detect_anomaly(args):
         load_model(students[i], model_name)
 
     # Callibration on anomaly-free dataset
-    callibration_dataset = AnomalyDataset(csv_file=f'../data/{args.dataset}/{args.dataset}.csv',
-                                    root_dir=f'../data/{args.dataset}/img',
-                                    transform=transforms.Compose([
-                                        transforms.Resize((args.image_size, args.image_size)),
-                                        transforms.ToTensor(),
-                                        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]),
-                                    type='train',
-                                    label=0)
+    callibration_dataset = AnomalyDataset(root_dir=f'../data/{args.dataset}',
+                                          transform=transforms.Compose([
+                                              transforms.Resize((args.image_size, args.image_size)),
+                                              transforms.ToTensor(),
+                                              transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]),
+                                          type='train',
+                                          label=0)
 
     dataloader = DataLoader(callibration_dataset, 
                             batch_size=args.batch_size, 
@@ -111,13 +110,12 @@ def detect_anomaly(args):
 
 
     # Load testing data
-    dataset = AnomalyDataset(csv_file=f'../data/{args.dataset}/{args.dataset}.csv',
-                                    root_dir=f'../data/{args.dataset}/img',
-                                    transform=transforms.Compose([
-                                        transforms.Resize((args.image_size, args.image_size)),
-                                        transforms.ToTensor(),
-                                        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]),
-                                    type='test')
+    dataset = AnomalyDataset(root_dir=f'../data/{args.dataset}',
+                             transform=transforms.Compose([
+                                transforms.Resize((args.image_size, args.image_size)),
+                                transforms.ToTensor(),
+                                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]),
+                              type='test')
     dataloader = DataLoader(dataset, 
                             batch_size=args.batch_size, 
                             shuffle=True, 
