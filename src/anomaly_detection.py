@@ -46,6 +46,56 @@ def get_variance_map(students_pred):
     return var
 
 
+@torch.no_grad()
+def callibrate(teacher, students, dataloader, device):
+    print('Callibrating teacher on Student dataset.')
+    t_mu, t_var, t_N = 0, 0, 0
+    for _, batch in tqdm(enumerate(dataloader)):
+        inputs = batch['image'].to(device)
+        t_out = teacher.fdfe(inputs)
+        t_mu, t_var, t_N = increment_mean_and_var(t_mu, t_var, t_N, t_out)
+    
+    print('Callibrating scoring parameters on Student dataset.')
+    max_err, max_var = 0, 0
+    mu_err, var_err, N_err = 0, 0, 0
+    mu_var, var_var, N_var = 0, 0, 0
+
+    for _, batch in tqdm(enumerate(dataloader)):
+        inputs = batch['image'].to(device)
+
+        t_out = (teacher.fdfe(inputs) - t_mu) / torch.sqrt(t_var)
+        s_out = torch.stack([student.fdfe(inputs) for student in students], dim=1)
+
+        s_err = get_error_map(s_out, t_out)
+        s_var = get_variance_map(s_out)
+        mu_err, var_err, N_err = increment_mean_and_var(mu_err, var_err, N_err, s_err)
+        mu_var, var_var, N_var = increment_mean_and_var(mu_var, var_var, N_var, s_var)
+
+        max_err = max(max_err, torch.max(s_err))
+        max_var = max(max_var, torch.max(s_var))
+    
+    return {"teacher": {"mu": t_mu, "var": t_var},
+            "students": {"err":
+                            {"mu": mu_err, "var": var_err, "max": max_err},
+                         "var":
+                            {"mu": mu_var, "var": var_var, "max": max_var}
+                        }
+            }
+
+
+@torch.no_grad()
+def get_score_map(inputs, teacher, students, params):
+    t_out = (teacher.fdfe(inputs) - params['teacher']['mu']) / torch.sqrt(params['teacher']['var'])
+    s_out = torch.stack([student.fdfe(inputs) for student in students], dim=1)
+
+    s_err = get_error_map(s_out, t_out)
+    s_var = get_variance_map(s_out)
+    score_map = (s_err - params['students']['err']['mu']) / torch.sqrt(params['students']['err']['var'])\
+                    + (s_var - params['students']['var']['mu']) / torch.sqrt(params['students']['var']['var'])
+    
+    return score_map
+
+
 def detect_anomaly(args):
     # Choosing device 
     device = torch.device("cuda:0" if args.gpus else "cpu")
@@ -80,33 +130,8 @@ def detect_anomaly(args):
                             batch_size=args.batch_size, 
                             shuffle=False, 
                             num_workers=args.num_workers)
-
-    with torch.no_grad():
-        print('Callibrating teacher on Student dataset.')
-        t_mu, t_var, t_N = 0, 0, 0
-        for i, batch in tqdm(enumerate(dataloader)):
-            inputs = batch['image'].to(device)
-            t_out = teacher.fdfe(inputs)
-            t_mu, t_var, t_N = increment_mean_and_var(t_mu, t_var, t_N, t_out)
-        
-        print('Callibrating scoring parameters on Student dataset.')
-        max_err, max_var = 0, 0
-        mu_err, var_err, N_err = 0, 0, 0
-        mu_var, var_var, N_var = 0, 0, 0
-
-        for i, batch in tqdm(enumerate(dataloader)):
-            inputs = batch['image'].to(device)
-
-            t_out = (teacher.fdfe(inputs) - t_mu) / torch.sqrt(t_var)
-            s_out = torch.stack([student.fdfe(inputs) for student in students], dim=1)
-
-            s_err = get_error_map(s_out, t_out)
-            s_var = get_variance_map(s_out)
-            mu_err, var_err, N_err = increment_mean_and_var(mu_err, var_err, N_err, s_err)
-            mu_var, var_var, N_var = increment_mean_and_var(mu_var, var_var, N_var, s_var)
-
-            max_err = max(max_err, torch.max(s_err))
-            max_var = max(max_var, torch.max(s_var))
+    
+    params = callibrate(teacher, students, dataloader, device)
 
 
     # Load testing data
@@ -125,43 +150,38 @@ def detect_anomaly(args):
     # Build anomaly map
     test_set = iter(dataloader)
     unorm = transforms.Normalize((-1, -1, -1), (2, 2, 2)) # get back to original image
-    with torch.no_grad():
-        for i in range(args.test_size):
-            batch = next(test_set)
-            inputs = batch['image'].to(device)
-            label = batch['label'].cpu()
-            anomaly = 'with' if label.item() == 1 else 'without'
 
-            t_out = (teacher.fdfe(inputs) - t_mu) / torch.sqrt(t_var)
-            s_out = torch.stack([student.fdfe(inputs) for student in students], dim=1)
+    for i in range(args.test_size):
+        batch = next(test_set)
+        inputs = batch['image'].to(device)
+        label = batch['label'].cpu()
+        anomaly = 'with' if label.item() == 1 else 'without'
 
-            s_err = get_error_map(s_out, t_out)
-            s_var = get_variance_map(s_out)
-            score_map = (s_err - mu_err) / torch.sqrt(var_err) + (s_var - mu_var) / torch.sqrt(var_var)
+        score_map = get_score_map(inputs, teacher, students, params)
 
-            img_in = unorm(rearrange(inputs, 'b c h w -> c h (b w)').cpu())
-            img_in = rearrange(img_in, 'c h w -> h w c')
+        img_in = unorm(rearrange(inputs, 'b c h w -> c h (b w)').cpu())
+        img_in = rearrange(img_in, 'c h w -> h w c')
+        score_map = rearrange(score_map, 'b h w -> h (b w)').cpu()
 
-            score_map = rearrange(score_map, 'b h w -> h (b w)').cpu()
+        # display results
+        plt.figure(figsize=(13, 3))
 
-            # display results
-            plt.figure(figsize=(13, 3))
+        plt.subplot(1, 2, 1)
+        plt.imshow(img_in)
+        plt.title(f'Original image - {anomaly} anomaly')
 
-            plt.subplot(1, 2, 1)
-            plt.imshow(img_in)
-            plt.title(f'Original image - {anomaly} anomaly')
+        plt.subplot(1, 2, 2)
+        plt.imshow(score_map, cmap='jet')
+        plt.imshow(img_in, cmap='gray', interpolation='none')
+        plt.imshow(score_map, cmap='jet', alpha=0.5, interpolation='none')
+        plt.colorbar(extend='both')
+        plt.title(f'Anomaly map')
 
-            plt.subplot(1, 2, 2)
-            plt.imshow(score_map, cmap='jet')
-            plt.imshow(img_in, cmap='gray', interpolation='none')
-            plt.imshow(score_map, cmap='jet', alpha=0.5, interpolation='none')
-            plt.colorbar(extend='both')
-            plt.title(f'Anomaly map')
+        max_score = (params['students']['err']['max'] - params['students']['err']['mu']) / torch.sqrt(params['students']['err']['var'])\
+                        + (params['students']['var']['max'] - params['students']['var']['mu']) / torch.sqrt(params['students']['var']['var'])
+        plt.clim(0, max_score.item())
 
-            max_score = (max_err - mu_err) / torch.sqrt(var_err) + (max_var - mu_var) / torch.sqrt(var_var)
-            plt.clim(0, max_score.item())
-
-            plt.show(block=True)
+        plt.show(block=True)
 
 
 if __name__ == '__main__':
