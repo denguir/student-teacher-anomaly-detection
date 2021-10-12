@@ -52,7 +52,7 @@ class AnomalyDataset(Dataset):
             gt_path = os.path.join(self.gt_dir, item['gt_name'])
             gt = Image.open(gt_path)
         else:
-            gt = Image.fromarray(np.zeros_like(np.array(image)))
+            gt = Image.new('L', image.size, color=0)
 
         sample = {'label': label}
 

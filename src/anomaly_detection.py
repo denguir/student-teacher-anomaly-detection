@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from argparse import ArgumentParser
@@ -8,6 +9,7 @@ from AnomalyDataset import AnomalyDataset
 from torchvision import transforms
 from torch.utils.data.dataloader import DataLoader
 from utils import increment_mean_and_var, load_model
+from sklearn.metrics import roc_curve, auc
 
 
 def parse_arguments():
@@ -15,10 +17,11 @@ def parse_arguments():
 
     # program arguments
     parser.add_argument('--dataset', type=str, default='carpet', help="Dataset to infer on (in data folder)")
-    parser.add_argument('--test_size', type=int, default=30, help="Number of images to visualize")
+    parser.add_argument('--test_size', type=int, default=20, help="Number of batch for the test set")
     parser.add_argument('--n_students', type=int, default=3, help="Number of students network to use")
     parser.add_argument('--patch_size', type=int, default=65, choices=[17, 33, 65])
     parser.add_argument('--image_size', type=int, default=256)
+    parser.add_argument('--visualize', type=bool, default=True, help="Display anomaly map batch per batch")
 
     # trainer arguments
     parser.add_argument('--gpus', type=int, default=(1 if torch.cuda.is_available() else 0))
@@ -96,6 +99,27 @@ def get_score_map(inputs, teacher, students, params):
     return score_map
 
 
+def visualize(img, gt, score_map, max_score):
+    plt.figure(figsize=(13, 3))
+    plt.subplot(1, 3, 1)
+    plt.imshow(img)
+    plt.title(f'Original image')
+
+    plt.subplot(1, 3, 2)
+    plt.imshow(gt, cmap='gray')
+    plt.title(f'Ground thuth anomaly')
+
+    plt.subplot(1, 3, 3)
+    plt.imshow(score_map, cmap='jet')
+    plt.imshow(img, cmap='gray', interpolation='none')
+    plt.imshow(score_map, cmap='jet', alpha=0.5, interpolation='none')
+    plt.colorbar(extend='both')
+    plt.title('Anomaly map')
+
+    plt.clim(0, max_score)
+    plt.show(block=True)
+
+
 def detect_anomaly(args):
     # Choosing device 
     device = torch.device("cuda:0" if args.gpus else "cpu")
@@ -118,70 +142,112 @@ def detect_anomaly(args):
         load_model(students[i], model_name)
 
     # Callibration on anomaly-free dataset
-    callibration_dataset = AnomalyDataset(root_dir=f'../data/{args.dataset}',
-                                          transform=transforms.Compose([
-                                              transforms.Resize((args.image_size, args.image_size)),
-                                              transforms.ToTensor(),
-                                              transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]),
-                                          type='train',
-                                          label=0)
+    callib_dataset = AnomalyDataset(root_dir=f'../data/{args.dataset}',
+                                    transform=transforms.Compose([
+                                        transforms.Resize((args.image_size, args.image_size)),
+                                        transforms.ToTensor(),
+                                        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]),
+                                    type='train',
+                                    label=0)
 
-    dataloader = DataLoader(callibration_dataset, 
-                            batch_size=args.batch_size, 
-                            shuffle=False, 
-                            num_workers=args.num_workers)
+    callib_dataloader = DataLoader(callib_dataset, 
+                                   batch_size=args.batch_size, 
+                                   shuffle=False, 
+                                   num_workers=args.num_workers)
     
-    params = callibrate(teacher, students, dataloader, device)
+    params = callibrate(teacher, students, callib_dataloader, device)
 
 
     # Load testing data
-    dataset = AnomalyDataset(root_dir=f'../data/{args.dataset}',
-                             transform=transforms.Compose([
-                                transforms.Resize((args.image_size, args.image_size)),
-                                transforms.ToTensor(),
-                                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]),
-                              type='test')
-    dataloader = DataLoader(dataset, 
-                            batch_size=args.batch_size, 
-                            shuffle=True, 
-                            num_workers=args.num_workers)
+    test_dataset = AnomalyDataset(root_dir=f'../data/{args.dataset}',
+                                  transform=transforms.Compose([
+                                    transforms.Resize((args.image_size, args.image_size)),
+                                    transforms.ToTensor(),
+                                    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]),
+                                  gt_transform=transforms.Compose([
+                                    transforms.Resize((args.image_size, args.image_size)),
+                                    transforms.ToTensor()]),
+                                  type='test')
+
+    test_dataloader = DataLoader(test_dataset, 
+                                 batch_size=args.batch_size, 
+                                 shuffle=True, 
+                                 num_workers=args.num_workers)
+
+    
+    # Build anomaly map
+    y_score = np.array([])
+    y_true = np.array([])
+    test_iter = iter(test_dataloader)
+
+    for i in range(args.test_size):
+        batch = next(test_iter)
+        inputs = batch['image'].to(device)
+        gt = batch['gt'].cpu()
+
+        score_map = get_score_map(inputs, teacher, students, params).cpu()
+        y_score = np.concatenate((y_score, rearrange(score_map, 'b h w -> (b h w)').numpy()))
+        y_true = np.concatenate((y_true, rearrange(gt, 'b c h w -> (b c h w)').numpy()))
+
+        if args.visualize:
+            unorm = transforms.Normalize((-1, -1, -1), (2, 2, 2)) # get back to original image
+            max_score = (params['students']['err']['max'] - params['students']['err']['mu']) / torch.sqrt(params['students']['err']['var'])\
+                + (params['students']['var']['max'] - params['students']['var']['mu']) / torch.sqrt(params['students']['var']['var']).item()
+            img_in = rearrange(unorm(inputs).cpu(), 'b c h w -> b h w c')
+            gt_in = rearrange(gt, 'b c h w -> b h w c')
+
+            for b in range(args.batch_size):
+                visualize(img_in[b, :, :, :].squeeze(), 
+                          gt_in[b, :, :, :].squeeze(), 
+                          score_map[b, :, :].squeeze(), 
+                          max_score)
+    
+    # AUC ROC
+    fpr, tpr, thresholds = roc_curve(y_true.astype(int), y_score)
+    plt.figure(figsize=(13, 3))
+    plt.plot(fpr, tpr, 'r', label="ROC")
+    plt.plot(fpr, fpr, 'b', label="random")
+    plt.title(f'ROC AUC: {auc(fpr, tpr)}')
+    plt.legend()
+    plt.grid()
+    plt.show()
 
 
     # Build anomaly map
-    test_set = iter(dataloader)
-    unorm = transforms.Normalize((-1, -1, -1), (2, 2, 2)) # get back to original image
+    # test_set = iter(test_dataloader)
+    # unorm = transforms.Normalize((-1, -1, -1), (2, 2, 2)) # get back to original image
 
-    for i in range(args.test_size):
-        batch = next(test_set)
-        inputs = batch['image'].to(device)
-        label = batch['label'].cpu()
-        anomaly = 'with' if label.item() == 1 else 'without'
+    # for i in range(args.test_size):
+    #     batch = next(test_set)
+    #     inputs = batch['image'].to(device)
+    #     label = batch['label'].cpu()
+    #     anomaly = 'with' if label.item() == 1 else 'without'
 
-        score_map = get_score_map(inputs, teacher, students, params)
+    #     score_map = get_score_map(inputs, teacher, students, params)
 
-        img_in = unorm(rearrange(inputs, 'b c h w -> c h (b w)').cpu())
-        img_in = rearrange(img_in, 'c h w -> h w c')
-        score_map = rearrange(score_map, 'b h w -> h (b w)').cpu()
+    #     img_in = unorm(rearrange(inputs, 'b c h w -> c h (b w)').cpu())
+    #     img_in = rearrange(img_in, 'c h w -> h w c')
+    #     score_map = rearrange(score_map, 'b h w -> h (b w)').cpu()
 
-        # display results
-        plt.figure(figsize=(13, 3))
+    #     # display results
+    #     plt.figure(figsize=(13, 3))
 
-        plt.subplot(1, 2, 1)
-        plt.imshow(img_in)
-        plt.title(f'Original image - {anomaly} anomaly')
+    #     plt.subplot(1, 2, 1)
+    #     plt.imshow(img_in)
+    #     plt.title(f'Original image - {anomaly} anomaly')
 
-        plt.subplot(1, 2, 2)
-        plt.imshow(score_map, cmap='jet')
-        plt.imshow(img_in, cmap='gray', interpolation='none')
-        plt.imshow(score_map, cmap='jet', alpha=0.5, interpolation='none')
-        plt.colorbar(extend='both')
-        plt.title(f'Anomaly map')
+    #     plt.subplot(1, 2, 2)
+    #     plt.imshow(score_map, cmap='jet')
+    #     plt.imshow(img_in, cmap='gray', interpolation='none')
+    #     plt.imshow(score_map, cmap='jet', alpha=0.5, interpolation='none')
+    #     plt.colorbar(extend='both')
+    #     plt.title(f'Anomaly map')
 
-        max_score = (params['students']['err']['max'] - params['students']['err']['mu']) / torch.sqrt(params['students']['err']['var'])\
-                        + (params['students']['var']['max'] - params['students']['var']['mu']) / torch.sqrt(params['students']['var']['var'])
-        plt.clim(0, max_score.item())
+    #     max_score = (params['students']['err']['max'] - params['students']['err']['mu']) / torch.sqrt(params['students']['err']['var'])\
+    #                     + (params['students']['var']['max'] - params['students']['var']['mu']) / torch.sqrt(params['students']['var']['var'])
+    #     plt.clim(0, max_score.item())
 
-        plt.show(block=True)
+    #     plt.show(block=True)
 
 
 if __name__ == '__main__':
