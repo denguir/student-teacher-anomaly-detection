@@ -40,14 +40,14 @@ python anomaly_detection.py --dataset carpet --patch_size 33 --n_students 3
 ```
 
 ## Results
-![alt text](https://github.com/denguir/student-teacher-anomaly-detection/blob/master/results/anomaly_carpet_res1.png)
-![alt text](https://github.com/denguir/student-teacher-anomaly-detection/blob/master/results/anomaly_carpet_res2.png)
-![alt text](https://github.com/denguir/student-teacher-anomaly-detection/blob/master/results/anomaly_carpet_res5.png)
+![result 1](results/anomaly_carpet_res1.png)
+![result 2](results/anomaly_carpet_res2.png)
+![result 5](results/anomaly_carpet_res5.png)
 
 And more results are available under **/result** folder
 
 ## Performance
-![alt text](https://github.com/denguir/student-teacher-anomaly-detection/blob/master/results/carpet_roc.png)
+![roc](results/carpet_roc.png)
 
 ## References
 

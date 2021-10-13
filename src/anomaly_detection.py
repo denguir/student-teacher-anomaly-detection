@@ -50,15 +50,15 @@ def get_variance_map(students_pred):
 
 
 @torch.no_grad()
-def callibrate(teacher, students, dataloader, device):
-    print('Callibrating teacher on Student dataset.')
+def calibrate(teacher, students, dataloader, device):
+    print('calibrating teacher on Student dataset.')
     t_mu, t_var, t_N = 0, 0, 0
     for _, batch in tqdm(enumerate(dataloader)):
         inputs = batch['image'].to(device)
         t_out = teacher.fdfe(inputs)
         t_mu, t_var, t_N = increment_mean_and_var(t_mu, t_var, t_N, t_out)
     
-    print('Callibrating scoring parameters on Student dataset.')
+    print('calibrating scoring parameters on Student dataset.')
     max_err, max_var = 0, 0
     mu_err, var_err, N_err = 0, 0, 0
     mu_var, var_var, N_var = 0, 0, 0
@@ -141,8 +141,8 @@ def detect_anomaly(args):
         model_name = f'../model/{args.dataset}/student_{args.patch_size}_net_{i}.pt'
         load_model(students[i], model_name)
 
-    # Callibration on anomaly-free dataset
-    callib_dataset = AnomalyDataset(root_dir=f'../data/{args.dataset}',
+    # calibration on anomaly-free dataset
+    calib_dataset = AnomalyDataset(root_dir=f'../data/{args.dataset}',
                                     transform=transforms.Compose([
                                         transforms.Resize((args.image_size, args.image_size)),
                                         transforms.ToTensor(),
@@ -150,12 +150,12 @@ def detect_anomaly(args):
                                     type='train',
                                     label=0)
 
-    callib_dataloader = DataLoader(callib_dataset, 
+    calib_dataloader = DataLoader(calib_dataset, 
                                    batch_size=args.batch_size, 
                                    shuffle=False, 
                                    num_workers=args.num_workers)
     
-    params = callibrate(teacher, students, callib_dataloader, device)
+    params = calibrate(teacher, students, calib_dataloader, device)
 
 
     # Load testing data
@@ -208,46 +208,11 @@ def detect_anomaly(args):
     plt.plot(fpr, tpr, 'r', label="ROC")
     plt.plot(fpr, fpr, 'b', label="random")
     plt.title(f'ROC AUC: {auc(fpr, tpr)}')
+    plt.xlabel('FPR')
+    plt.ylabel('TPR')
     plt.legend()
     plt.grid()
     plt.show()
-
-
-    # Build anomaly map
-    # test_set = iter(test_dataloader)
-    # unorm = transforms.Normalize((-1, -1, -1), (2, 2, 2)) # get back to original image
-
-    # for i in range(args.test_size):
-    #     batch = next(test_set)
-    #     inputs = batch['image'].to(device)
-    #     label = batch['label'].cpu()
-    #     anomaly = 'with' if label.item() == 1 else 'without'
-
-    #     score_map = get_score_map(inputs, teacher, students, params)
-
-    #     img_in = unorm(rearrange(inputs, 'b c h w -> c h (b w)').cpu())
-    #     img_in = rearrange(img_in, 'c h w -> h w c')
-    #     score_map = rearrange(score_map, 'b h w -> h (b w)').cpu()
-
-    #     # display results
-    #     plt.figure(figsize=(13, 3))
-
-    #     plt.subplot(1, 2, 1)
-    #     plt.imshow(img_in)
-    #     plt.title(f'Original image - {anomaly} anomaly')
-
-    #     plt.subplot(1, 2, 2)
-    #     plt.imshow(score_map, cmap='jet')
-    #     plt.imshow(img_in, cmap='gray', interpolation='none')
-    #     plt.imshow(score_map, cmap='jet', alpha=0.5, interpolation='none')
-    #     plt.colorbar(extend='both')
-    #     plt.title(f'Anomaly map')
-
-    #     max_score = (params['students']['err']['max'] - params['students']['err']['mu']) / torch.sqrt(params['students']['err']['var'])\
-    #                     + (params['students']['var']['max'] - params['students']['var']['mu']) / torch.sqrt(params['students']['var']['var'])
-    #     plt.clim(0, max_score.item())
-
-    #     plt.show(block=True)
 
 
 if __name__ == '__main__':
