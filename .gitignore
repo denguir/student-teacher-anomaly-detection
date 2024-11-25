@@ -1,3 +1,5 @@
-data/*
-logs/*
-*.pyc
+data
+logs
+models
+venv
+__pycache__

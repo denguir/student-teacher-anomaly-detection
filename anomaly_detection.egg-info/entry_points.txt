@@ -1,0 +1,2 @@
+[console_scripts]
+anomaly_detection = src.anomaly_detection:main
