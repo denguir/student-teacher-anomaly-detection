@@ -1,11 +1,10 @@
 # Source:
 # https://github.com/erezposner/Fast_Dense_Feature_Extraction
 
-from torch import nn
-import torch
 import numpy as np
+import torch
 import torch.nn.functional as F
-
+from torch import nn
 
 # (N,C,H,W)
 
@@ -22,7 +21,9 @@ class multiPoolPrepare(nn.Module):
         self.pad_right = np.floor(padx / 2).astype(int)
 
     def forward(self, x):
-        y = F.pad(x, [self.pad_left, self.pad_right, self.pad_top, self.pad_bottom], value=0)
+        y = F.pad(
+            x, [self.pad_left, self.pad_right, self.pad_top, self.pad_bottom], value=0
+        )
         return y
 
 
@@ -46,7 +47,10 @@ class unwrapPool(nn.Module):
         self.dW = int(dW)
         self.dH = int(dH)
 
-    def forward(self, x, ):
+    def forward(
+        self,
+        x,
+    ):
         y = x.view((self.outChans, self.curImgW, self.curImgH, self.dH, self.dW, -1))
         y = y.transpose(2, 3)
 
@@ -92,7 +96,6 @@ class multiMaxPooling(nn.Module):
         return torch.cat(res, 0)
 
 
-
 class multiConv(nn.Module):
     def __init__(self, nInputPlane, nOutputPlane, kW, kH, dW, dH):
         super(multiConv, self).__init__()
@@ -103,7 +106,13 @@ class multiConv(nn.Module):
                 self.padd.append((-j, -i))
                 torch.manual_seed(10)
                 torch.cuda.manual_seed(10)
-                a = nn.Conv2d(nInputPlane, nOutputPlane, kernel_size=(kW, kH), stride=(dW, dH), padding=0)
+                a = nn.Conv2d(
+                    nInputPlane,
+                    nOutputPlane,
+                    kernel_size=(kW, kH),
+                    stride=(dW, dH),
+                    padding=0,
+                )
                 layers.append(a)
         self.max_layers = nn.ModuleList(layers)
         self.s = dW

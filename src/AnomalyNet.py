@@ -1,16 +1,18 @@
-import torch
 import pytorch_lightning as pl
+import torch
 import torch.nn as nn
 import torchvision.models as models
-from FDFE import multiPoolPrepare, multiMaxPooling, unwrapPrepare, unwrapPool
+
+from config import Config
+from FDFE import multiMaxPooling, multiPoolPrepare, unwrapPool, unwrapPrepare
 
 
 class AnomalyNet:
     def __init__(self):
         self.patch_cnn = {
-            **dict.fromkeys([(65, 65), 65, 'big'], AnomalyNet65),
-            **dict.fromkeys([(33, 33), 33, 'medium'], AnomalyNet33),
-            **dict.fromkeys([(17, 17), 17, 'small'], AnomalyNet17),
+            **dict.fromkeys([(65, 65), 65, "big"], AnomalyNet65),
+            **dict.fromkeys([(33, 33), 33, "medium"], AnomalyNet33),
+            **dict.fromkeys([(17, 17), 17, "small"], AnomalyNet17),
         }
 
     @classmethod
@@ -18,13 +20,13 @@ class AnomalyNet:
         self = cls()
         model = self.patch_cnn[model_name]
         if not model:
-            raise ValueError(f'Model not found - {model_name}')
+            raise ValueError(f"Model not found - {model_name}")
         return model()
 
 
 class AnomalyNet65(pl.LightningModule):
-    '''Patch-based CNN for anomaly detection. Designed to work with patches of size 65x65.
-    '''
+    """Patch-based CNN for anomaly detection. Designed to work with patches of size 65x65."""
+
     size = 65
 
     def __init__(self):
@@ -40,10 +42,10 @@ class AnomalyNet65(pl.LightningModule):
         self.conv5 = nn.Conv2d(256, 128, 1, 1)
         self.outChans = self.conv5.out_channels
         self.decode = nn.Linear(128, 512)
-        
+
         self.dropout_2d = nn.Dropout2d(0.2)
         self.dropout = nn.Dropout(0.2)
-        
+
         self.max_pool = nn.MaxPool2d(2, 2)
         self.multiMaxPooling = multiMaxPooling(2, 2, 2, 2)
         self.unwrapPrepare = unwrapPrepare()
@@ -51,13 +53,15 @@ class AnomalyNet65(pl.LightningModule):
         self.l_relu = nn.LeakyReLU(5e-3)
 
     def fdfe(self, x):
-        '''Use Fast Dense Feature Extraction to efficiently apply 
-        the patch-based CNN AnomalyNet65 on a whole image.'''
+        """Use Fast Dense Feature Extraction to efficiently apply
+        the patch-based CNN AnomalyNet65 on a whole image."""
 
         imH = x.size(2)
         imW = x.size(3)
 
-        unwrapPool3 = unwrapPool(self.outChans, imH / (2 * 2 * 2), imW / (2 * 2 * 2), 2, 2)
+        unwrapPool3 = unwrapPool(
+            self.outChans, imH / (2 * 2 * 2), imW / (2 * 2 * 2), 2, 2
+        )
         unwrapPool2 = unwrapPool(self.outChans, imH / (2 * 2), imW / (2 * 2), 2, 2)
         unwrapPool1 = unwrapPool(self.outChans, imH / 2, imW / 2, 2, 2)
 
@@ -89,8 +93,9 @@ class AnomalyNet65(pl.LightningModule):
         if fdfe:
             return self.fdfe(x)
         else:
-            assert x.size(2) == self.pH and x.size(3) == self.pW, \
-                f"This patch extractor only accepts input of size (b, 3, {self.pH}, {self.pW})"
+            assert (
+                x.size(2) == self.pH and x.size(3) == self.pW
+            ), f"This patch extractor only accepts input of size (b, 3, {self.pH}, {self.pW})"
             x = self.l_relu(self.conv1(x))
             x = self.max_pool(x)
             x = self.l_relu(self.conv2(x))
@@ -107,8 +112,8 @@ class AnomalyNet65(pl.LightningModule):
 
 
 class AnomalyNet33(pl.LightningModule):
-    '''Patch-based CNN for anomaly detection. Designed to work with patches of size 33x33.
-    '''
+    """Patch-based CNN for anomaly detection. Designed to work with patches of size 33x33."""
+
     size = 33
 
     def __init__(self):
@@ -126,7 +131,7 @@ class AnomalyNet33(pl.LightningModule):
 
         self.dropout_2d = nn.Dropout2d(0.2)
         self.dropout = nn.Dropout(0.2)
-        
+
         self.max_pool = nn.MaxPool2d(2, 2)
         self.multiMaxPooling = multiMaxPooling(2, 2, 2, 2)
         self.unwrapPrepare = unwrapPrepare()
@@ -134,8 +139,8 @@ class AnomalyNet33(pl.LightningModule):
         self.l_relu = nn.LeakyReLU(5e-3)
 
     def fdfe(self, x):
-        '''Use Fast Dense Feature Extraction to efficiently apply 
-        the patch-based CNN AnomalyNet33 on a whole image.'''
+        """Use Fast Dense Feature Extraction to efficiently apply
+        the patch-based CNN AnomalyNet33 on a whole image."""
 
         imH = x.size(2)
         imW = x.size(3)
@@ -167,8 +172,9 @@ class AnomalyNet33(pl.LightningModule):
         if fdfe:
             return self.fdfe(x)
         else:
-            assert x.size(2) == self.pH and x.size(3) == self.pW, \
-                f"This patch extractor only accepts input of size (b, 3, {self.pH}, {self.pW})"
+            assert (
+                x.size(2) == self.pH and x.size(3) == self.pW
+            ), f"This patch extractor only accepts input of size (b, 3, {self.pH}, {self.pW})"
             x = self.l_relu(self.conv1(x))
             x = self.max_pool(x)
             x = self.l_relu(self.conv2(x))
@@ -183,8 +189,8 @@ class AnomalyNet33(pl.LightningModule):
 
 
 class AnomalyNet17(pl.LightningModule):
-    '''Patch-based CNN for anomaly detection. Designed to work with patches of size 17x17
-    '''
+    """Patch-based CNN for anomaly detection. Designed to work with patches of size 17x17"""
+
     size = 17
 
     def __init__(self):
@@ -206,8 +212,8 @@ class AnomalyNet17(pl.LightningModule):
         self.l_relu = nn.LeakyReLU(5e-3)
 
     def fdfe(self, x):
-        '''Use Fast Dense Feature Extraction to efficiently apply 
-        the patch-based CNN AnomalyNet17 on a whole image.'''
+        """Use Fast Dense Feature Extraction to efficiently apply
+        the patch-based CNN AnomalyNet17 on a whole image."""
 
         imH = x.size(2)
         imW = x.size(3)
@@ -228,8 +234,9 @@ class AnomalyNet17(pl.LightningModule):
         if fdfe:
             return self.fdfe(x)
         else:
-            assert x.size(2) == self.pH and x.size(3) == self.pW, \
-                f"This patch extractor only accepts input of size (b, 3, {self.pH}, {self.pW})"
+            assert (
+                x.size(2) == self.pH and x.size(3) == self.pW
+            ), f"This patch extractor only accepts input of size (b, 3, {self.pH}, {self.pW})"
             x = self.l_relu(self.conv1(x))
             x = self.l_relu(self.conv2(x))
             x = self.l_relu(self.conv3(x))
@@ -241,7 +248,28 @@ class AnomalyNet17(pl.LightningModule):
             return x
 
 
-if __name__ == '__main__':
+def load_model(model_path: str, patch_size: int):
+    model = AnomalyNet.create(patch_size)
+    model.load_state_dict(torch.load(model_path))
+    return model
+
+
+def load_teacher_model(dataset_name: str, patch_size: int):
+    model_path = Config.MODEL_PATH / dataset_name / f"teacher_{patch_size}_net.pt"
+    return load_model(str(model_path), patch_size)
+
+
+def load_students_model(dataset_name: str, patch_size: int, n_students: int):
+    models = []
+    for i in range(n_students):
+        model_path = (
+            Config.MODEL_PATH / dataset_name / f"student_{patch_size}_net_{i}.pt"
+        )
+        models.append(load_model(str(model_path), patch_size))
+    return models
+
+
+if __name__ == "__main__":
 
     pH = 33
     pW = 33
@@ -258,4 +286,3 @@ if __name__ == '__main__':
 
     print(y_net.size())
     print(torch.squeeze(y_resnet18).size())
-    
